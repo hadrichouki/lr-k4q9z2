@@ -956,7 +956,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <button class="choice gps" id="chooseGps">📍 Jouer avec mon vrai GPS</button>
     <button class="choice sim" id="chooseSim">🚶 Balade simulée (sans bouger)</button>
     <button class="choice test" id="chooseHere">🧪 Tester le GPS ici : 3 licornes autour de moi</button>
-    <div class="small">Le vrai GPS ne marche qu'en https et avec la localisation autorisée.<br>Version 26 · site web</div>
+    <div class="small">Le vrai GPS ne marche qu'en https et avec la localisation autorisée.<br>Version 27 · site web</div>
   </div>
 </div>
 
@@ -1598,11 +1598,24 @@ svg.leaflet-image-layer.leaflet-interactive path {
     if (atNode >= 0) setPos(G.n[atNode][0], G.n[atNode][1], 8);
   }
   $('btnManual').onclick = function () {
+    if (mode === 'gps') { // depuis le mode GPS : on passe aux fleches a partir de la position actuelle
+      manual = true; try { localStorage.setItem(MANUAL_KEY, '1'); } catch (e) {}
+      startSim();
+      toast('🕹️ Flèches activées : tu te déplaces toi-même à partir d\'ici. Touche 📍 pour revenir au vrai GPS.', 4500);
+      return;
+    }
     manual = !manual;
     try { localStorage.setItem(MANUAL_KEY, manual ? '1' : '0'); } catch (e) {}
     applyManual();
     toast(manual ? '🕹️ Mode manuel : dirige ton personnage avec les flèches.' : '🤖 Mode auto : je vais tout seul vers la licorne la plus proche.', 3500);
   };
+  // En mode GPS, si la position ne bouge pas, on propose les fleches
+  var lastMoveAt = 0, lastMovePos = null, stillHinted = false;
+  setInterval(function () {
+    if (mode !== 'gps' || !pos) return;
+    if (!lastMovePos || distance(pos, lastMovePos) > 8) { lastMovePos = { lat: pos.lat, lng: pos.lng }; lastMoveAt = Date.now(); return; }
+    if (!stillHinted && Date.now() - lastMoveAt > 25000) { stillHinted = true; toast('🧭 Tu ne bouges pas ? Dehors, le GPS suit tes pas. Sinon, touche 🕹️ pour te déplacer avec les flèches.', 7000); }
+  }, 5000);
   Array.prototype.forEach.call(document.querySelectorAll('#pad button'), function (b) {
     var d = b.getAttribute('data-dir');
     function down(e) { e.preventDefault(); padDir = d; b.classList.add('press'); }
