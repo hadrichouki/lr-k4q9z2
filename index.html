@@ -956,7 +956,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <button class="choice gps" id="chooseGps">📍 Jouer avec mon vrai GPS</button>
     <button class="choice sim" id="chooseSim">🚶 Balade simulée (sans bouger)</button>
     <button class="choice test" id="chooseHere">🧪 Tester le GPS ici : 3 licornes autour de moi</button>
-    <div class="small">Le vrai GPS ne marche qu'en https et avec la localisation autorisée.<br>Version 25 · site web</div>
+    <div class="small">Le vrai GPS ne marche qu'en https et avec la localisation autorisée.<br>Version 26 · site web</div>
   </div>
 </div>
 
@@ -1108,8 +1108,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
       }).catch(function (err) { b.textContent += ' → fetch refusé : ' + (err && err.message || err); });
     } catch (e2) { b.textContent += ' → ' + e2; }
   }
-  // Sonde au demarrage : une image connue du plan
+  // Sonde au demarrage : une image connue du plan (seulement quand le plan embarque est utilise)
   (function () {
+    if (!IN_CLAUDE) return;
     var img = new Image();
     img.onerror = function () { diagTiles(img.src); };
     img.src = BASE + 'tiles/16/33226/22535.png' + TOKEN;
