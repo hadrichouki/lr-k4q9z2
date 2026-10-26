@@ -754,10 +754,12 @@ function formulaireProfil() {
       return '<button class="badge ' + (on ? 'b-indigo' : '') + '" data-act="profSpe" data-v="' + x[0] + '" aria-pressed="' + on + '" style="' + (on ? '' : 'background:var(--soft);color:var(--txt2)') + '">' + (on ? '✓ ' : '') + esc(x[1]) + '</button>';
     }).join('') + '</div>' : '') + '</div>';
 }
+// Hors inscription, chaque changement du profil est enregistré tout de suite
+function profilChange() { if (S.onb === null || S.onb === undefined) { sauverProfil(); S.pniv = ELEVE.niveau; S.pvoie = ELEVE.voie; } render(); }
 function lirePrenom() { var ch = document.getElementById('prenomChamp'); if (ch) ELEVE.prenom = ch.value.replace(/^\s+|\s+$/g, '').slice(0, 30); }
 function profil() {
   return '<div class="st"><button class="lien" data-act="reglagesRetour">‹ Réglages</button><h1 class="display">Mon profil</h1>' + formulaireProfil() +
-    '<button class="btn pri grand" data-act="profilOk">Enregistrer</button>' +
+    '<div class="mut">Enregistré automatiquement à chaque changement.</div><button class="btn pri grand" data-act="profilOk">Terminé</button>' +
     '<div class="card st-s"><b>Mes programmes</b><div class="mut">' + mesProgrammes().map(function (p) { return esc(nomCourt(p)); }).join(' · ') + '</div></div></div>';
 }
 /* Données d’exemple : pour découvrir l’app avec des cours déjà importés (élève fictive) */
@@ -1404,7 +1406,7 @@ document.addEventListener('click', function (ev) {
   else if (a === 'rapToggle') { RAPPELS[v] = !RAPPELS[v]; sauverRappels(); render(); }
   else if (a === 'rapHeure') { RAPPELS.heure = v; RAPPELS.actif = true; sauverRappels(); render(); }
   else if (a === 'ouvrirPage') { S.sheet = null; S.confirmeSuppr = false; go(v); }
-  else if (a === 'reglagesRetour') { go('accueil'); set({ sheet: 'reglages' }); }
+  else if (a === 'reglagesRetour') { if (S.tab === 'profil') { lirePrenom(); sauverProfil(); } go('accueil'); set({ sheet: 'reglages' }); }
   else if (a === 'inviterParent') { var em = (document.getElementById('emailParent').value || '').replace(/^\s+|\s+$/g, ''); if (!/^\S+@\S+\.\S+$/.test(em)) return toast('Indique une adresse e-mail valide.'); PARENT.email = em; PARENT.statut = 'invite'; sauverParent(); render(); toast('Invitation envoyée à ' + em + ' (démo).'); }
   else if (a === 'retirerParent') { PARENT.email = ''; PARENT.statut = 'aucun'; sauverParent(); render(); toast('Ton parent ne reçoit plus de résumé.'); }
   else if (a === 'signaler') { if (S.chat[+v]) S.chat[+v].signale = true; render(); toast('Merci : l’erreur est signalée et sera vérifiée.'); }
@@ -1418,10 +1420,10 @@ document.addEventListener('click', function (ev) {
     sauverConsent(); set({ onb: 2 });
   }
   else if (a === 'onbIA') { CONSENT.ia = true; CONSENT.date = Date.now(); sauverConsent(); set({ onb: 4 }); }
-  else if (a === 'profNiv') { lirePrenom(); ELEVE.niveau = v; ELEVE.specialites = ELEVE.specialites.slice(0, maxSpecialites()); render(); }
-  else if (a === 'profVoie') { lirePrenom(); ELEVE.voie = v; render(); }
-  else if (a === 'profSerie') { lirePrenom(); ELEVE.serie = v; render(); }
-  else if (a === 'profSpe') { lirePrenom(); var ix = ELEVE.specialites.indexOf(v); if (ix >= 0) ELEVE.specialites.splice(ix, 1); else if (ELEVE.specialites.length < maxSpecialites()) ELEVE.specialites.push(v); else return toast('Au maximum ' + maxSpecialites() + ' spécialités en ' + nivNom(ELEVE.niveau).toLowerCase() + '.'); render(); }
+  else if (a === 'profNiv') { lirePrenom(); ELEVE.niveau = v; ELEVE.specialites = ELEVE.specialites.slice(0, maxSpecialites()); profilChange(); }
+  else if (a === 'profVoie') { lirePrenom(); ELEVE.voie = v; profilChange(); }
+  else if (a === 'profSerie') { lirePrenom(); ELEVE.serie = v; profilChange(); }
+  else if (a === 'profSpe') { lirePrenom(); var ix = ELEVE.specialites.indexOf(v); if (ix >= 0) ELEVE.specialites.splice(ix, 1); else if (ELEVE.specialites.length < maxSpecialites()) ELEVE.specialites.push(v); else return toast('Au maximum ' + maxSpecialites() + ' spécialités en ' + nivNom(ELEVE.niveau).toLowerCase() + '.'); profilChange(); }
   else if (a === 'onbProfilOk') { lirePrenom(); if (!ELEVE.prenom) return toast('Dis-moi ton prénom pour créer ton compte.'); if (ELEVE.voie === 'generale' && ELEVE.niveau !== 'seconde' && !ELEVE.specialites.length) return toast('Choisis au moins une spécialité.'); sauverProfil(); S.pniv = ELEVE.niveau; S.pvoie = ELEVE.voie; set({ onb: 3 }); }
   else if (a === 'profilOk') { lirePrenom(); sauverProfil(); S.pniv = ELEVE.niveau; S.pvoie = ELEVE.voie; go('accueil'); toast('Profil enregistré.'); }
   else if (a === 'chargerExemple') { chargerExemple(); S.pmat = MATS[0][0]; go('accueil'); toast('Cours d’exemple chargés. Tu peux les effacer dans Réglages › Mes données.'); }
@@ -1503,6 +1505,7 @@ document.addEventListener('input', function (ev) {
   if (ev.target.id === 'texteColle') IMP.texte = ev.target.value;
   if (ev.target.id === 'q' || ev.target.id === 'q2') S.draft = ev.target.value;
   if (ev.target.id === 'sRep' && S.sess) S.sess.rep = ev.target.value;
+  if (ev.target.id === 'prenomChamp') { lirePrenom(); if (S.onb === null || S.onb === undefined) sauverProfil(); }
 });
 
 /* « Explique-moi ça » : sélectionner un passage d’une fiche fait apparaître un bouton qui l’envoie au tuteur */
