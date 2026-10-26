@@ -781,12 +781,12 @@ function onboarding() {
   var h = '<div class="onb">' + pas;
   if (n === 0) h += '<div class="onb-corps st"><span class="logo display" style="font-size:2.2em">Révizo</span><h1 class="display">Révise mieux, en moins de temps.</h1>' +
     '<ul class="attendus coche"><li>Photographie tes cours : on en fait des fiches et des quiz.</li><li>Un tuteur qui t’explique ce que tu n’as pas compris.</li><li>Les programmes officiels et les épreuves du bac.</li></ul></div>' +
-    '<div class="onb-bas"><button class="btn pri grand" data-act="onbSuite">Commencer</button><button class="lien" data-act="onbPasser">Passer la présentation</button></div>';
+    '<div class="onb-bas"><button class="btn pri grand" data-act="onbSuite">Créer mon compte</button><button class="lien" data-act="onbPasser">J’ai déjà lu, passer à l’inscription</button></div>';
   else if (n === 1) h += '<div class="onb-corps st"><h1 class="display">Quel âge as-tu ?</h1><div class="mut">On en a besoin pour protéger tes données : en France, avant 15 ans, un parent doit donner son accord.</div>' +
     '<div class="g2"><button class="type' + (CONSENT.age === 'moins15' ? ' on' : '') + '" data-act="onbAge" data-v="moins15"><b>Moins de 15 ans</b><span>un parent valide</span></button><button class="type' + (CONSENT.age === 'plus15' ? ' on' : '') + '" data-act="onbAge" data-v="plus15"><b>15 ans ou plus</b><span>tu valides toi-même</span></button></div>' +
     (CONSENT.age === 'moins15' ? '<div class="card st-s"><label class="mut" for="emailParentOnb">E-mail d’un parent</label><input id="emailParentOnb" class="champ-txt" type="email" inputmode="email" placeholder="parent@exemple.fr" value="' + esc(CONSENT.parentEmail) + '"><div class="mut">Ton parent reçoit un lien pour valider. En attendant, tu peux découvrir l’app, mais tes cours ne sont pas analysés.</div></div>' : '') + '</div>' +
     '<div class="onb-bas"><button class="btn pri grand" data-act="onbAgeOk"' + (CONSENT.age ? '' : ' disabled') + '>Continuer</button></div>';
-  else if (n === 2) h += '<div class="onb-corps st"><h1 class="display">Parle-moi de toi</h1><div class="mut">Pour t’appeler par ton prénom et te montrer les bons programmes. Tu pourras changer tout ça dans les réglages.</div>' +
+  else if (n === 2) h += '<div class="onb-corps st"><h1 class="display">Ton compte</h1><div class="mut">Ton prénom, ta classe et tes spécialités : c’est ce qui règle les programmes, les matières et la session du jour. Modifiable ensuite dans Réglages › Mon profil.</div>' +
     formulaireProfil() + '<div class="onb-bas"><button class="btn pri grand" data-act="onbProfilOk">Continuer</button></div>';
   else if (n === 3) h += '<div class="onb-corps st"><span class="tuile" style="--m:var(--acc);--mb:var(--acc-bg);width:56px;height:56px">' + ico('ampoule', 30) + '</span><h1 class="display">Révizo utilise une intelligence artificielle</h1>' +
     '<ul class="attendus"><li><b>Elle peut se tromper.</b> Vérifie avec ton cours, et signale une erreur d’un geste.</li><li><b>Tes notes sont indicatives.</b> La note d’oral ou de contrôle blanc sert à t’entraîner, pas à t’évaluer officiellement.</li><li><b>Tes cours restent à toi.</b> Ils ne servent pas à entraîner l’IA et ne sont jamais revendus. Pas de publicité.</li><li>Tu peux tout télécharger ou tout effacer, quand tu veux.</li></ul>' +
@@ -794,7 +794,7 @@ function onboarding() {
     '<div class="onb-bas"><button class="btn pri grand" data-act="onbIA">J’ai compris</button></div>';
   else h += '<div class="onb-corps st"><h1 class="display">Un petit rappel par jour ?</h1><div class="mut">Un seul, à l’heure que tu choisis, jamais le soir après 21 h. Tu peux l’arrêter à tout moment.</div>' +
     seg([['17', '17 h'], ['18', '18 h'], ['19', '19 h'], ['20', '20 h']], RAPPELS.heure, 'rapHeure') + notif('3 cartes à revoir sur les suites. 5 minutes et c’est fait.', 'aujourd’hui ' + RAPPELS.heure + ' h') + '</div>' +
-    '<div class="onb-bas"><button class="btn pri grand" data-act="onbFin" data-v="1">Oui, me le rappeler</button><button class="lien" data-act="onbFin" data-v="0">Non merci</button></div>';
+    '<div class="onb-bas"><button class="btn pri grand" data-act="onbFin" data-v="1">Oui, et créer mon compte</button><button class="lien" data-act="onbFin" data-v="0">Non merci, créer mon compte</button></div>';
   return h + '</div>';
 }
 function donnees() {
@@ -1409,7 +1409,8 @@ document.addEventListener('click', function (ev) {
   else if (a === 'retirerParent') { PARENT.email = ''; PARENT.statut = 'aucun'; sauverParent(); render(); toast('Ton parent ne reçoit plus de résumé.'); }
   else if (a === 'signaler') { if (S.chat[+v]) S.chat[+v].signale = true; render(); toast('Merci : l’erreur est signalée et sera vérifiée.'); }
   else if (a === 'onbSuite') set({ onb: S.onb + 1 });
-  else if (a === 'onbPasser' || a === 'onbFin') { if (a === 'onbFin') { RAPPELS.actif = v === '1'; sauverRappels(); } if (!CONSENT.date) { CONSENT.age = CONSENT.age || 'plus15'; CONSENT.ia = true; CONSENT.date = Date.now(); sauverConsent(); } try { localStorage.setItem('revizo-onb', '1'); } catch (e) {} set({ onb: null }); if (a === 'onbFin') toast(RAPPELS.actif ? 'Rappel programmé à ' + RAPPELS.heure + ' h.' : 'Pas de rappel. Tu pourras l’activer dans les réglages.'); }
+  else if (a === 'onbPasser') set({ onb: 1 });
+  else if (a === 'onbFin') { RAPPELS.actif = v === '1'; sauverRappels(); if (!CONSENT.date) { CONSENT.age = CONSENT.age || 'plus15'; CONSENT.ia = true; CONSENT.date = Date.now(); sauverConsent(); } try { localStorage.setItem('revizo-onb', '1'); } catch (e) {} set({ onb: null }); toast(RAPPELS.actif ? 'Rappel programmé à ' + RAPPELS.heure + ' h.' : 'Pas de rappel. Tu pourras l’activer dans les réglages.'); }
   else if (a === 'onbAge') { var champE = document.getElementById('emailParentOnb'); if (champE) CONSENT.parentEmail = champE.value; CONSENT.age = v; render(); }
   else if (a === 'onbAgeOk') {
     if (CONSENT.age === 'moins15') { var e2 = (document.getElementById('emailParentOnb').value || '').replace(/^\s+|\s+$/g, ''); if (!/^\S+@\S+\.\S+$/.test(e2)) return toast('Indique l’e-mail d’un parent.'); CONSENT.parentEmail = e2; CONSENT.parentStatut = 'en attente'; }
@@ -1421,7 +1422,7 @@ document.addEventListener('click', function (ev) {
   else if (a === 'profVoie') { lirePrenom(); ELEVE.voie = v; render(); }
   else if (a === 'profSerie') { lirePrenom(); ELEVE.serie = v; render(); }
   else if (a === 'profSpe') { lirePrenom(); var ix = ELEVE.specialites.indexOf(v); if (ix >= 0) ELEVE.specialites.splice(ix, 1); else if (ELEVE.specialites.length < maxSpecialites()) ELEVE.specialites.push(v); else return toast('Au maximum ' + maxSpecialites() + ' spécialités en ' + nivNom(ELEVE.niveau).toLowerCase() + '.'); render(); }
-  else if (a === 'onbProfilOk') { lirePrenom(); sauverProfil(); S.pniv = ELEVE.niveau; S.pvoie = ELEVE.voie; set({ onb: 3 }); }
+  else if (a === 'onbProfilOk') { lirePrenom(); if (!ELEVE.prenom) return toast('Dis-moi ton prénom pour créer ton compte.'); if (ELEVE.voie === 'generale' && ELEVE.niveau !== 'seconde' && !ELEVE.specialites.length) return toast('Choisis au moins une spécialité.'); sauverProfil(); S.pniv = ELEVE.niveau; S.pvoie = ELEVE.voie; set({ onb: 3 }); }
   else if (a === 'profilOk') { lirePrenom(); sauverProfil(); S.pniv = ELEVE.niveau; S.pvoie = ELEVE.voie; go('accueil'); toast('Profil enregistré.'); }
   else if (a === 'chargerExemple') { chargerExemple(); S.pmat = MATS[0][0]; go('accueil'); toast('Cours d’exemple chargés. Tu peux les effacer dans Réglages › Mes données.'); }
   else if (a === 'toutEffacer') { if (S.confirmeEffacer) toutEffacer(); else { S.confirmeEffacer = true; render(); setTimeout(function () { S.confirmeEffacer = false; }, 4000); } }
@@ -1531,7 +1532,7 @@ function expliquerSelection(ev) {
   document.addEventListener('selectionchange', majPastille);
   document.addEventListener('mouseup', function () { setTimeout(majPastille, 10); });
   appliquerReglages();
-  S.onb = ONB_FAIT ? null : 0;
+  S.onb = ONB_FAIT && ELEVE.prenom && CONSENT.date ? null : 0;
   chargerImports();
   S.pniv = ELEVE.niveau; S.pvoie = ELEVE.voie; if (MATS.length) S.pmat = MATS[0][0];
   render();
