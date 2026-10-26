@@ -12,7 +12,7 @@
 <meta http-equiv="Cache-Control" content="no-cache">
 <script>
 /* Mise à jour automatique : si une version plus récente est publiée, la page se recharge une fois (évite les vieilles copies gardées par le navigateur). */
-window.REVIZO_VERSION = '20261026-154813';
+window.REVIZO_VERSION = '20261026-155201';
 (function () {
   try {
     if (!/^https?:/.test(location.protocol)) return;
@@ -1119,7 +1119,8 @@ function panneauReglages() {
         '<button class="item" data-act="ouvrirPage" data-v="parent"><span>Compte parent<br><small class="mut">' + (PARENT.statut === 'aucun' ? 'Invite un parent à suivre ta progression' : PARENT.email) + '</small></span><span class="mut">›</span></button>' +
         '<button class="item" data-act="ouvrirPage" data-v="donnees"><span>Mes données et mes droits<br><small class="mut">Ce qui est gardé, télécharger, effacer</small></span><span class="mut">›</span></button>' +
         '<button class="item" data-act="ouvrirPage" data-v="confid"><span>Politique de confidentialité</span><span class="mut">›</span></button>' +
-        '<button class="item" data-act="revoirOnb"><span>Revoir la présentation</span><span class="mut">›</span></button></div>' +
+        '<button class="item" data-act="revoirOnb"><span>Revoir la présentation</span><span class="mut">›</span></button>' +
+        '<button class="item" data-act="toutEffacer"><span style="color:var(--ko)">' + (S.confirmeEffacer ? 'Confirmer : effacer ce compte et recommencer' : 'Se déconnecter et repartir de zéro') + '<br><small class="mut">Efface le compte, les cours et la progression de cet appareil, puis relance l’inscription</small></span><span class="mut">›</span></button></div>' +
       '<div class="reglage mut">Révizo utilise une IA : elle peut se tromper, ses notes sont indicatives. Sans publicité.</div>' +
       '<div class="reglage"><div class="eyebrow" style="margin-bottom:6px">Tes matières</div><div class="couleurs-mat">' + ['maths', 'philo', 'hg', 'pc', 'svt', 'ses', 'francais', 'lv'].map(function (m) { return chipMat(m); }).join('') + '</div></div>' +
     '</div></div>';
