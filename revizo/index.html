@@ -12,7 +12,7 @@
 <meta http-equiv="Cache-Control" content="no-cache">
 <script>
 /* Mise à jour automatique : si une version plus récente est publiée, la page se recharge une fois (évite les vieilles copies gardées par le navigateur). */
-window.REVIZO_VERSION = '20261026-155201';
+window.REVIZO_VERSION = '20261026-155440';
 (function () {
   try {
     if (!/^https?:/.test(location.protocol)) return;
@@ -793,8 +793,11 @@ function chargerExemple() {
   sauverActivite(); sauverImports();
 }
 function toutEffacer() {
-  try { ['revizo-imports', 'revizo-activite', 'revizo-controle', 'revizo-profil', 'revizo-objectif', 'revizo-parent', 'revizo-consent', 'revizo-rappels', 'revizo-onb', 'revizo-reglages'].forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
-  location.reload();
+  try { var cles = []; for (var i = 0; i < localStorage.length; i++) if (/^revizo-/.test(localStorage.key(i))) cles.push(localStorage.key(i)); cles.forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
+  try { sessionStorage.removeItem('revizo-maj'); } catch (e) {}
+  CHAPS.length = 0; MATS.length = 0; for (var n in MAI) delete MAI[n]; CONTROLE = null; ELEVE.prenom = ''; ELEVE.specialites = []; CONSENT = { age: null, parentEmail: '', parentStatut: 'non requis', ia: false, date: null }; ACTIVITE = { jours: {}, sessions: {}, evol: {} };
+  S.sheet = null; S.confirmeEffacer = false; S.confirmeSuppr = false; S.tab = 'accueil'; S.onb = 0; render();
+  try { location.replace(location.pathname + '?r=' + Date.now()); } catch (e) {}
 }
 function onboarding() {
   var n = S.onb, pas = '<div class="onb-pas">' + [0, 1, 2, 3, 4].map(function (i) { return '<i class="' + (i <= n ? 'on' : '') + '"></i>'; }).join('') + '</div>';
@@ -826,7 +829,7 @@ function donnees() {
       (CONSENT.parentStatut === 'en attente' ? '<div class="mut">Dans l’app finale, ton parent reçoit un e-mail pour valider. Ici, cette version de démonstration ne peut pas envoyer d’e-mail.</div><button class="btn" data-act="validerParent">Mon parent a validé</button>' : '') + '</div>' +
     '<div class="card st-s"><b>Sur cet appareil</b><div class="mut">' + CHAPS.filter(function (c) { return c.importe; }).length + ' chapitre' + (CHAPS.length > 1 ? 's' : '') + ' · ' + Object.keys(ACTIVITE.jours).length + ' jour' + (Object.keys(ACTIVITE.jours).length > 1 ? 's' : '') + ' de révision enregistré' + (Object.keys(ACTIVITE.jours).length > 1 ? 's' : '') + '. Tout est stocké dans ce navigateur, rien n’est envoyé.</div>' +
       (CHAPS.some(function (c) { return c.exemple; }) ? '' : '<button class="btn" data-act="chargerExemple">Charger des cours d’exemple</button>') +
-      '<button class="btn rouge" data-act="toutEffacer">' + (S.confirmeEffacer ? 'Confirmer : tout effacer et recommencer' : 'Tout effacer et recommencer') + '</button></div>' +
+      (S.confirmeEffacer ? '<div class="indice" style="background:var(--ko-bg)"><b style="color:var(--ko)">Sûr ?</b>Le compte, les cours et la progression de cet appareil seront effacés, puis l’inscription recommencera.</div><div class="g2"><button class="btn" data-act="annulerEffacer">Annuler</button><button class="btn rouge" data-act="toutEffacerOk">Oui, tout effacer</button></div>' : '<button class="btn rouge" data-act="toutEffacer">Tout effacer et recommencer</button>') + '</div>' +
     '<div class="card st-s"><b>Ce que Révizo garde, et combien de temps</b>' + lignes.map(function (l) { return '<div class="ligne-d"><div><b>' + l[0] + '</b> · ' + l[1] + '</div><div class="mut">' + l[2] + '</div></div>'; }).join('') +
       '<div class="mut">Stocké en Europe. Jamais revendu. Jamais utilisé pour entraîner une IA. Aucune publicité.</div></div>' +
     '<div class="card st-s"><b>Tes droits</b><button class="btn" data-act="exporter">Télécharger toutes mes données</button><button class="btn" data-act="voirConfid">Politique de confidentialité</button>' +
@@ -1120,7 +1123,7 @@ function panneauReglages() {
         '<button class="item" data-act="ouvrirPage" data-v="donnees"><span>Mes données et mes droits<br><small class="mut">Ce qui est gardé, télécharger, effacer</small></span><span class="mut">›</span></button>' +
         '<button class="item" data-act="ouvrirPage" data-v="confid"><span>Politique de confidentialité</span><span class="mut">›</span></button>' +
         '<button class="item" data-act="revoirOnb"><span>Revoir la présentation</span><span class="mut">›</span></button>' +
-        '<button class="item" data-act="toutEffacer"><span style="color:var(--ko)">' + (S.confirmeEffacer ? 'Confirmer : effacer ce compte et recommencer' : 'Se déconnecter et repartir de zéro') + '<br><small class="mut">Efface le compte, les cours et la progression de cet appareil, puis relance l’inscription</small></span><span class="mut">›</span></button></div>' +
+        (S.confirmeEffacer ? '<div class="indice" style="background:var(--ko-bg)"><b style="color:var(--ko)">Sûr ?</b>Le compte, les cours et la progression de cet appareil seront effacés, puis l’inscription recommencera.</div><div class="g2"><button class="btn" data-act="annulerEffacer">Annuler</button><button class="btn rouge" data-act="toutEffacerOk">Oui, tout effacer</button></div>' : '<button class="item" data-act="toutEffacer"><span style="color:var(--ko)">Se déconnecter et repartir de zéro<br><small class="mut">Efface le compte, les cours et la progression de cet appareil, puis relance l’inscription</small></span><span class="mut">›</span></button>') + '</div>' +
       '<div class="reglage mut">Révizo utilise une IA : elle peut se tromper, ses notes sont indicatives. Sans publicité.</div>' +
       '<div class="reglage"><div class="eyebrow" style="margin-bottom:6px">Tes matières</div><div class="couleurs-mat">' + ['maths', 'philo', 'hg', 'pc', 'svt', 'ses', 'francais', 'lv'].map(function (m) { return chipMat(m); }).join('') + '</div></div>' +
     '</div></div>';
@@ -1446,7 +1449,9 @@ document.addEventListener('click', function (ev) {
   else if (a === 'onbProfilOk') { lirePrenom(); if (!ELEVE.prenom) return toast('Dis-moi ton prénom pour créer ton compte.'); if (ELEVE.voie === 'generale' && ELEVE.niveau !== 'seconde' && !ELEVE.specialites.length) return toast('Choisis au moins une spécialité.'); sauverProfil(); S.pniv = ELEVE.niveau; S.pvoie = ELEVE.voie; set({ onb: 3 }); }
   else if (a === 'profilOk') { lirePrenom(); sauverProfil(); S.pniv = ELEVE.niveau; S.pvoie = ELEVE.voie; go('accueil'); toast('Profil enregistré.'); }
   else if (a === 'chargerExemple') { chargerExemple(); S.pmat = MATS[0][0]; go('accueil'); toast('Cours d’exemple chargés. Tu peux les effacer dans Réglages › Mes données.'); }
-  else if (a === 'toutEffacer') { if (S.confirmeEffacer) toutEffacer(); else { S.confirmeEffacer = true; render(); setTimeout(function () { S.confirmeEffacer = false; }, 4000); } }
+  else if (a === 'toutEffacer') { S.confirmeEffacer = true; render(); }
+  else if (a === 'annulerEffacer') { S.confirmeEffacer = false; render(); }
+  else if (a === 'toutEffacerOk') toutEffacer();
   else if (a === 'ctrlForm') set({ ctrlForm: !S.ctrlForm });
   else if (a === 'ctrlOk') { var cm = document.getElementById('ctrlChap'), cd = document.getElementById('ctrlDate'), cc = cm && chap(cm.value); if (!cc) return toast('Choisis un chapitre.'); if (!cd || !cd.value) return toast('Choisis la date du contrôle.'); var dd = new Date(cd.value + 'T12:00:00'); if (isNaN(dd.getTime())) return toast('Date invalide.'); CONTROLE = { mat: cc.mat, chap: cc.id, titre: 'Contrôle · ' + cc.titre, date: dd }; sauverControle(); set({ ctrlForm: false }); toast('Contrôle ajouté : ta session du jour le prépare.'); }
   else if (a === 'ctrlSuppr') { CONTROLE = null; sauverControle(); render(); }
