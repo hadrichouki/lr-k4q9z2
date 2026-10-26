@@ -12,7 +12,7 @@
 <meta http-equiv="Cache-Control" content="no-cache">
 <script>
 /* Mise à jour automatique : si une version plus récente est publiée, la page se recharge une fois (évite les vieilles copies gardées par le navigateur). */
-window.REVIZO_VERSION = '20261026-155440';
+window.REVIZO_VERSION = '20261026-160138';
 (function () {
   try {
     if (!/^https?:/.test(location.protocol)) return;
@@ -554,6 +554,14 @@ var NOMS = { hggsp: 'HGGSP', hlp: 'HLP', ses: 'SES', emc: 'EMC', eps: 'EPS', epp
   'maths-tc': 'Maths de l’enseignement scientifique', 'maths-comp': 'Maths complémentaires', 'maths-exp': 'Maths expertes', maths: 'Maths', philo: 'Philosophie', hg: 'Histoire-géo' };
 var DEMO_PROGMAP = { suites: 'gen-tle-maths#4', probas: 'gen-1re-maths#8', conscience: 'gen-tle-philo#0', liberte: 'gen-tle-philo#0', mers: 'gen-tle-hg#11', guerrefroide: 'gen-tle-hg#4' };
 var PROGMAP = {};
+function nomMatiereId(id) { for (var i = 0; i < PROGS.length; i++) if (PROGS[i].matiereId === id) return nomCourt(PROGS[i]); return NOMS[id] || (MATIERES[mk(id)] && mk(id) !== 'autre' ? MATIERES[mk(id)].nom : id); }
+// Les matières de l’élève : celles de ses programmes officiels, plus celles de ses cours importés
+function mesMatieres() {
+  var l = [];
+  mesProgrammes().forEach(function (p) { if (['eps', 'emc'].indexOf(p.matiereId) < 0 && !l.some(function (x) { return x[0] === p.matiereId; })) l.push([p.matiereId, nomCourt(p)]); });
+  MATS.forEach(function (m) { if (!l.some(function (x) { return x[0] === m[0]; })) l.push([m[0], m[1]]); });
+  return l;
+}
 function nomCourt(p) { return NOMS[p.matiereId] || p.matiere; }
 function nivNom(id) { for (var i = 0; i < NIVS.length; i++) if (NIVS[i][0] === id) return NIVS[i][1]; return id; }
 function progById(id) { for (var i = 0; i < PROGS.length; i++) if (PROGS[i].id === id) return PROGS[i]; return null; }
@@ -1118,14 +1126,14 @@ function panneauReglages() {
       inter('indices', 'Indices d’abord', 'Sur un exercice, le tuteur te guide avant de donner la correction.') +
       blocRappels() +
       '<div class="reglage"><div class="eyebrow" style="margin-bottom:6px">Compte et données</div>' +
-        '<button class="item" data-act="ouvrirPage" data-v="profil"><span>Mon profil<br><small class="mut">' + esc(ELEVE.prenom || 'Prénom') + ' · ' + nivNom(ELEVE.niveau) + (ELEVE.voie === 'generale' && ELEVE.specialites.length ? ' · ' + ELEVE.specialites.map(function (x) { return NOMS[x] || MATIERES[mk(x)].nom; }).join(', ') : ELEVE.voie === 'technologique' ? ' · ' + ELEVE.serie : '') + '</small></span><span class="mut">›</span></button>' +
+        '<button class="item" data-act="ouvrirPage" data-v="profil"><span>Mon profil<br><small class="mut">' + esc(ELEVE.prenom || 'Prénom') + ' · ' + nivNom(ELEVE.niveau) + (ELEVE.voie === 'generale' && ELEVE.specialites.length ? ' · ' + ELEVE.specialites.map(nomMatiereId).join(', ') : ELEVE.voie === 'technologique' ? ' · ' + ELEVE.serie : '') + '</small></span><span class="mut">›</span></button>' +
         '<button class="item" data-act="ouvrirPage" data-v="parent"><span>Compte parent<br><small class="mut">' + (PARENT.statut === 'aucun' ? 'Invite un parent à suivre ta progression' : PARENT.email) + '</small></span><span class="mut">›</span></button>' +
         '<button class="item" data-act="ouvrirPage" data-v="donnees"><span>Mes données et mes droits<br><small class="mut">Ce qui est gardé, télécharger, effacer</small></span><span class="mut">›</span></button>' +
         '<button class="item" data-act="ouvrirPage" data-v="confid"><span>Politique de confidentialité</span><span class="mut">›</span></button>' +
         '<button class="item" data-act="revoirOnb"><span>Revoir la présentation</span><span class="mut">›</span></button>' +
         (S.confirmeEffacer ? '<div class="indice" style="background:var(--ko-bg)"><b style="color:var(--ko)">Sûr ?</b>Le compte, les cours et la progression de cet appareil seront effacés, puis l’inscription recommencera.</div><div class="g2"><button class="btn" data-act="annulerEffacer">Annuler</button><button class="btn rouge" data-act="toutEffacerOk">Oui, tout effacer</button></div>' : '<button class="item" data-act="toutEffacer"><span style="color:var(--ko)">Se déconnecter et repartir de zéro<br><small class="mut">Efface le compte, les cours et la progression de cet appareil, puis relance l’inscription</small></span><span class="mut">›</span></button>') + '</div>' +
       '<div class="reglage mut">Révizo utilise une IA : elle peut se tromper, ses notes sont indicatives. Sans publicité.</div>' +
-      '<div class="reglage"><div class="eyebrow" style="margin-bottom:6px">Tes matières</div><div class="couleurs-mat">' + ['maths', 'philo', 'hg', 'pc', 'svt', 'ses', 'francais', 'lv'].map(function (m) { return chipMat(m); }).join('') + '</div></div>' +
+      '<div class="reglage"><div class="eyebrow" style="margin-bottom:6px">Tes matières</div><div class="couleurs-mat">' + mesMatieres().map(function (m) { return chipMat(m[0], m[1]); }).join('') + '</div><div class="mut" style="margin-top:6px">D’après ton profil : ' + esc(nivNom(ELEVE.niveau).toLowerCase()) + (ELEVE.voie === 'generale' ? ' générale' : ELEVE.voie === 'technologique' ? ' ' + esc(ELEVE.serie) : ' pro') + '. Chaque matière a sa couleur dans toute l’app.</div></div>' +
     '</div></div>';
 }
 
@@ -1366,7 +1374,7 @@ function render() {
   var tabs = [['accueil', 'Accueil'], ['cours', 'Cours'], ['importer', ''], ['reviser', 'Réviser'], ['tuteur', 'Tuteur'], ['bac', 'Bac']];
   document.getElementById('app').innerHTML =
     '<div class="ecran' + (S.tab === 'tuteur' ? ' chat' : '') + (focus ? ' focus' : '') + '"><div class="st">' +
-      (focus ? '' : '<div class="row topbar"><span class="logo display">Révizo</span><span class="actions"><button class="rond" data-act="reglages" aria-label="Réglages">' + ico('reglages', 20) + '</button><button class="rond" data-act="reglages" aria-label="Mon profil et mes réglages">L</button></span></div>') +
+      (focus ? '' : '<div class="row topbar"><span class="logo display">Révizo</span><span class="actions"><button class="rond" data-act="reglages" aria-label="Réglages">' + ico('reglages', 20) + '</button><button class="rond" data-act="reglages" aria-label="Mon profil et mes réglages">' + (ELEVE.prenom ? esc(ELEVE.prenom.charAt(0).toUpperCase()) : ico('reglages', 20)) + '</button></span></div>') +
       ecrans[S.tab]() + '</div></div>' +
     (S.tab === 'tuteur' ? saisie('q') : '') +
     (focus ? '' : '<nav class="tabbar" aria-label="Navigation">' + tabs.map(function (t) {
