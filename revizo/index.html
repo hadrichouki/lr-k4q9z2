@@ -12,7 +12,7 @@
 <meta http-equiv="Cache-Control" content="no-cache">
 <script>
 /* Mise à jour automatique : si une version plus récente est publiée, la page se recharge une fois (évite les vieilles copies gardées par le navigateur). */
-window.REVIZO_VERSION = '20261026-160729';
+window.REVIZO_VERSION = '20261026-162238';
 (function () {
   try {
     if (!/^https?:/.test(location.protocol)) return;
@@ -1190,6 +1190,7 @@ function cours() {
       '<div class="st-s">' + chipMat(c.mat) + '<h1 class="display">' + esc(c.titre) + '</h1><div class="liseret"></div></div>' +
       '<div class="card st-s"><div class="row"><span class="eyebrow">Résumé de ton cours</span>' + boutonEcouter(c.resume) + '</div><p style="margin:6px 0 0;line-height:1.6">' + fmt(c.resume) + '</p>' +
         '<div class="mut">D’après ' + esc(c.src) + ' · sélectionne une phrase pour demander « Explique-moi ça »</div></div>' +
+      blocFiche(c) +
       '<div class="card st"><div class="eyebrow">Notions</div>' + c.notions.map(function (n) {
         var e = etat(MAI[n]);
         return '<div><div class="row"><span>' + esc(n) + '</span><b style="color:var(--' + e[1] + ')">' + e[0] + '</b></div>' + barre(MAI[n]) + '</div>';
@@ -1572,6 +1573,80 @@ function expliquerSelection(ev) {
   S.pniv = ELEVE.niveau; S.pvoie = ELEVE.voie; if (MATS.length) S.pmat = MATS[0][0];
   render();
 })();
+/* ---------- Correction légère du texte reconnu sur les photos : mots courants + vocabulaire des programmes officiels ---------- */
+var MOTS_FR = ('le la les un une des du de au aux et ou où mais donc or ni car que qui quoi dont ce cet cette ces se sa son ses leur leurs mon ma mes ton ta tes notre nos votre vos ' +
+  'je tu il elle on nous vous ils elles me te lui eux moi toi soi y en ne pas plus moins très trop peu assez tout tous toute toutes rien jamais toujours souvent parfois déjà encore ' +
+  'être avoir faire dire aller voir savoir pouvoir vouloir devoir falloir venir prendre donner trouver parler mettre passer suivre comprendre connaître croire montrer penser devenir rester tenir ' +
+  'est sont était étaient été sera seront serait soit soient suis es sommes êtes fut a ont avait avaient aura auront aurait ait aient eu ai as avons avez ' +
+  'fait font faisait faisons faites fais peut peuvent pouvait pourra pourrait puisse doit doivent devait devra devrait faut fallait faudra veut veulent voulait ' +
+  'définir défini définie définis définies définit définition définitions noter noté notée notés notées note notons appeler appelé appelée appelés appelées appelle appelons dit dite dits dites ' +
+  'alors ainsi aussi donc puis ensuite enfin d’abord car parce que puisque comme lorsque quand si sinon tandis alors même autre autres chaque plusieurs certains certaines quelques aucun aucune ' +
+  'avec sans pour par sur sous dans entre vers chez depuis pendant avant après contre selon malgré sauf parmi dès jusque jusqu ' +
+  'ici là bas haut dessus dessous dedans dehors partout ailleurs loin près ' +
+  'bien mal mieux pire beaucoup peu tant autant plutôt presque environ seulement uniquement surtout notamment particulier général généralement exemple exemples remarque remarques ' +
+  'premier première premiers premières deuxième troisième dernier dernière dernières suivant suivante suivants suivantes précédent précédente précédents précédentes prochain ' +
+  'zéro un deux trois quatre cinq six sept huit neuf dix onze douze treize quatorze quinze seize vingt trente quarante cinquante soixante cent mille million milliard ' +
+  'nombre nombres entier entiers naturel naturels relatif relatifs réel réels rationnel décimal décimaux positif positifs négatif négatifs nul nulle pair impair ' +
+  'suite suites terme termes rang rangs indice indices raison somme produit quotient différence reste valeur valeurs signe sens variation variations croissante croissant décroissante décroissant constante constant ' +
+  'fonction fonctions image images antécédent antécédents courbe courbes droite droites point points abscisse abscisses ordonnée ordonnées coordonnées repère origine axe axes graphique graphiques représentation représentée représenter nuage ' +
+  'calcul calculer calculs résoudre résolution équation équations inéquation inéquations inconnue solution solutions formule formules expression expressions développer factoriser réduire simplifier ' +
+  'ensemble ensembles élément éléments appartient appartenir inclus intervalle intervalles borne bornes ' +
+  'propriété propriétés théorème théorèmes démonstration démontrer preuve prouver conjecture hypothèse hypothèses conclusion conséquence corollaire réciproque condition conditions nécessaire suffisante ' +
+  'méthode méthodes exercice exercices question questions réponse réponses correction corrigé énoncé énoncés consigne consignes ' +
+  'existe existence exister interdit interdite interdits interdites impossible possible permet permettent permettre certains cas situation situations pratique pratiques ' +
+  'tableau tableaux ligne lignes colonne colonnes case cases données donnée donner donne ' +
+  'année années an ans jour jours mois semaine semaines heure heures minute minutes seconde secondes siècle siècles époque période périodes date dates ' +
+  'France français française monde pays état états population habitants ville villes région régions territoire ' +
+  'bachelier bacheliers élève élèves lycée lycéen professeur cours chapitre chapitres partie parties leçon classe classes programme programmes ' +
+  'écoulé écoulée écoulées choisir choisissant choisi choisie choix associer associée associe texte textes phrase phrases mot mots ' +
+  'cellule cellules molécule molécules énergie réaction réactions organisme organismes espèce espèces gène gènes ' +
+  'guerre guerres paix crise crises révolution république empire roi royaume nation nations puissance puissances ' +
+  'liberté conscience raison vérité justice bonheur devoir nature culture art science technique travail langage religion').split(/\s+/);
+var LEX = null, LEX_IDX = null;
+function lexique() {
+  if (LEX) return LEX;
+  LEX = {}; LEX_IDX = {};
+  var src = MOTS_FR.join(' ') + ' ' + VIDES.join(' ');
+  try { src += ' ' + JSON.stringify(PD.programmes) + ' ' + JSON.stringify(PD.videos && PD.videos.chapitres); } catch (e) {}
+  src.toLowerCase().split(/[^a-zà-ÿœ]+/).forEach(function (w) {
+    if (w.length < 2 || LEX[w]) return; LEX[w] = 1;
+    var k = sansAcc(w); if (!LEX[k]) LEX[k] = w; // forme sans accent → forme accentuée
+    var c = k.charAt(0); (LEX_IDX[c] || (LEX_IDX[c] = [])).push(k);
+  });
+  return LEX;
+}
+function distance2(a, b) { // distance d’édition, abandon au-delà de 2
+  var la = a.length, lb = b.length; if (Math.abs(la - lb) > 2) return 3;
+  var prev = [], cur = [], i, j;
+  for (j = 0; j <= lb; j++) prev[j] = j;
+  for (i = 1; i <= la; i++) {
+    cur[0] = i; var mini = i;
+    for (j = 1; j <= lb; j++) { var c = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1; cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + c); if (cur[j] < mini) mini = cur[j]; }
+    if (mini > 2) return 3;
+    var t = prev; prev = cur; cur = t;
+  }
+  return prev[lb];
+}
+function corrigerMot(w) {
+  var lex = lexique(), bas = w.toLowerCase(), k = sansAcc(bas);
+  if (lex[bas] || lex[k] || w.length < 4 || /\d/.test(w)) return w;
+  if (/^[A-ZÀ-Ý]{2,}$/.test(w)) return w; // sigle
+  var cands = LEX_IDX[k.charAt(0)] || [], max = k.length >= 7 ? 2 : 1, best = null, bd = 3, nb = 0;
+  for (var i = 0; i < cands.length; i++) {
+    var c = cands[i]; if (Math.abs(c.length - k.length) > 1 || c.length < 4) continue;
+    var d = distance2(k, c); if (d > max) continue;
+    if (d < bd) { bd = d; best = c; nb = 1; } else if (d === bd) nb++;
+  }
+  if (!best || nb !== 1) return w;
+  var mot = typeof lex[best] === 'string' ? lex[best] : best;
+  return /^[A-ZÀ-Ý]/.test(w) ? mot.charAt(0).toUpperCase() + mot.slice(1) : mot;
+}
+function corrigerOcr(t) {
+  return t.replace(/[A-Za-zÀ-ÿœŒ]{4,}/g, function (w) {
+    if (/^[a-zà-ÿ]+[A-ZÀ-Ý]/.test(w)) return ''; // « oeeT » : majuscule au milieu d’un mot = bruit
+    return corrigerMot(w);
+  }).replace(/[ \t]{2,}/g, ' ');
+}
 
 /* ===================== Import réel de cours : lecture des fichiers dans le navigateur, puis analyse du texte =====================
    Photos : reconnaissance du texte (Tesseract, français). PDF : texte du PDF (pdf.js), sinon reconnaissance des pages scannées.
@@ -1688,6 +1763,8 @@ function nettoyerTexteOcr(t) {
     var bruit = 0, mots = 0, nombres = 0;
     j.forEach(function (m) { var b = jetonBruit(m); if (b === true) bruit++; else if (b === 'ponct') return; else if (/[0-9]{4,}/.test(m)) nombres++; else if (m.replace(/[^A-Za-zÀ-ÿ]/g, '').length >= 2) mots++; });
     if (bruit > j.length / 2) return '';
+    var etiq = j.filter(function (m) { return m.replace(/[^A-Za-zÀ-ÿ0-9:]/g, '').length >= 2; }).join(' ');
+    if (/^(d[ée]finitions?|propri[ée]t[ée]s?|th[ée]or[eè]mes?|remarques?|exemples?|m[ée]thodes?|vocabulaire|exercices?|formules?|rappels?|attention|conclusion|introduction|d[ée]monstration)\s*\d*\s*:?$/i.test(etiq)) return etiq.charAt(0).toUpperCase() + etiq.slice(1);
     if (mots < 2 && nombres < 3) return '';
     return j.join(' ').replace(/^[\s;:.,'’`´"-]+|[\s;:'’`´"-]+$/g, '');
   }).filter(function (l, i, a) { return l || (a[i - 1] && a[i - 1] !== ''); }).join('\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -1699,7 +1776,7 @@ function ocr(source, etiquette) {
     return window.Tesseract.createWorker({ workerPath: LIBS.tessWorker, corePath: LIBS.tessCore, langPath: LIBS.tessLang,
       logger: function (m) { if (m.status === 'recognizing text') progres(etiquette + ' : ' + Math.round(m.progress * 100) + ' %'); } })
       .then(function (w) { return w.loadLanguage('fra').then(function () { return w.initialize('fra'); }).then(function () { ocrWorker = w; return w; }); });
-  }).then(function (w) { return w.recognize(source); }).then(function (r) { return nettoyerTexteOcr(r.data.text || ''); })
+  }).then(function (w) { return w.recognize(source); }).then(function (r) { return corrigerOcr(nettoyerTexteOcr(r.data.text || '')); })
   .then(null, function (err) {
     var m = err && err.message ? err.message : String(err || '');
     if ((err && err.name === 'SecurityError') || /insecure|SecurityError|Worker/i.test(m)) throw new Error('ce navigateur bloque la lecture des photos (c’est le cas de l’aperçu dans Claude). Enregistre le fichier Révizo et ouvre-le directement dans Safari ou Chrome, ou colle le texte du cours.');
@@ -1759,11 +1836,112 @@ function estTitre(l) {
   var lettres = l.replace(/[^A-Za-zÀ-ÿ]/g, '');
   return lettres.length >= 4 && lettres === lettres.toUpperCase() && l.split(' ').length <= 9;
 }
-function propreTitre(l) { return l.replace(/^(chapitre|partie|séquence|sequence|thème|theme|leçon|lecon|cours)\s*(\d+|[IVX]+)?\s*[:\.\)\-–—]*\s*/i, '').replace(/^((\d+|[IVX]+|[A-H])\s*[\.\)\-–]\s*)+/i, '').replace(/:$/, '').replace(/^\s+|\s+$/g, '').replace(/^(.)/, function (c) { return c.toUpperCase(); }).replace(/^([A-ZÀ-Ý0-9 \-'’,;:()]+)$/, function (m) { return m.charAt(0) + m.slice(1).toLowerCase(); }); }
+function propreTitre(l) { return l.replace(/^(chapitre|partie|séquence|sequence|thème|theme|leçon|lecon|cours)\s*(\d+|[IVX]+)?\s*[:\.\)\-–—]*\s*/i, '').replace(/^((\d+|[IVX]+|[A-H])\s*[\.\)\-–]\s*)+/i, '').replace(/:$/, '').replace(/^\s+|\s+$/g, '').replace(/^(.)/, function (c) { return c.toUpperCase(); }).replace(/^([A-ZÀ-Ý0-9 \-'’,;:()]+)$/, function (m) { return m.length <= 5 && m.indexOf(' ') < 0 ? m : m.charAt(0) + m.slice(1).toLowerCase(); }); }
 var TITRES_GENERIQUES = /^(d[ée]finitions?|propri[ée]t[ée]s?|th[ée]or[eè]me|m[ée]thodes?|exemples?|remarques?|exercices?|r[ée]sum[ée]|conclusion|introduction|cours|le[çc]on)$/i;
 function phrasesDe(t) { return t.replace(/\n+/g, ' ').replace(/([.!?])\s+(?=[A-ZÀ-Ý«"(\d])/g, '$1\u0001').split('\u0001').map(function (s) { return s.replace(/^\s+|\s+$/g, ''); }).filter(function (s) { return s.length >= 25 && s.length <= 320; }); }
 function couper(s, n) { s = s.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, ''); return s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…'; }
 function melanger(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), x = a[i]; a[i] = a[j]; a[j] = x; } return a; }
+
+/* ---------- Fiche de révision : structure du cours (définitions, propriétés, formules, remarques, exemples, vocabulaire) ---------- */
+var RE_BLOC = /^(d[ée]finitions?|d[ée]f\.?|propri[ée]t[ée]s?|th[ée]or[eè]mes?|remarques?|m[ée]thodes?|exemples?|vocabulaire|formules?|attention|[àa] retenir|rappels?|cons[ée]quences?|corollaire|d[ée]monstration|preuve|exercices?|applications?|notations?|interpr[ée]tation|bilan|conclusion)\s*(\d+|[a-h])?\s*(\(([^)]{1,60})\))?\s*([:.\-–—]+)?\s*(.*)$/i;
+var TYPE_BLOC = { definition: 'definitions', def: 'definitions', propriete: 'proprietes', theoreme: 'proprietes', consequence: 'proprietes', corollaire: 'proprietes', rappel: 'definitions', 'a retenir': 'proprietes', bilan: 'proprietes', conclusion: 'proprietes',
+  remarque: 'remarques', attention: 'remarques', methode: 'methodes', exemple: 'exemples', application: 'exemples', vocabulaire: 'vocabulaire', notation: 'vocabulaire', formule: 'formules', interpretation: 'remarques' };
+function typeBloc(mot) { var k = sansAcc(mot).replace(/\.$/, '').replace(/s$/, ''); if (k === 'de') k = 'def'; return TYPE_BLOC[k] || null; }
+// Une phrase est « lisible » si elle est faite de vrais mots (filtre le bruit de la reconnaissance de texte)
+function phraseLisible(s) {
+  var j = s.split(/\s+/).filter(Boolean); if (j.length < 4) return false;
+  var bruit = 0, mots = 0;
+  j.forEach(function (m) { var b = jetonBruit(m); if (b === true) bruit++; else if (b !== 'ponct' && m.replace(/[^A-Za-zÀ-ÿ]/g, '').length >= 2) mots++; });
+  return mots >= 4 && bruit <= Math.max(1, Math.floor(j.length / 7)) && !/\.{3,}|…{1,}\s*$/.test(s) && !/(^|\s)[.…_]{3,}/.test(s);
+}
+function finirPhrase(s) { s = couper(s.replace(/\s+/g, ' '), 260); return /[.!?…]$/.test(s) ? s : s + '.'; }
+function estTrou(l) { return /\.{4,}|…\s*…|_{3,}|\s\.\s\.\s\./.test(l) || /=\s*\.{2,}/.test(l); } // exercice à trous
+function construireFiche(lignes, titres) {
+  var f = { plan: [], definitions: [], proprietes: [], formules: [], remarques: [], exemples: [], methodes: [], vocabulaire: [], reperes: [] }, vu = {};
+  function ajouter(type, texte) {
+    if (!f[type]) return; texte = texte.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+    if (texte.length < 12) return; var k = sansAcc(texte).slice(0, 60), k40 = sansAcc(texte).slice(0, 40); if (vu[k]) return; vu[k] = 1;
+    if (f[type].some(function (x) { var sx = sansAcc(x); return sx.indexOf(k40) >= 0 || sansAcc(texte).indexOf(sx.slice(0, 40)) >= 0; })) return;
+    if (type === 'exemples') texte = couper(texte, 200);
+    f[type].push(finirPhrase(texte));
+  }
+  // Plan : titres de parties (hors titre du document)
+  titres.forEach(function (x, i) { if (!(i === 0 && x.i === 0) && f.plan.length < 8 && !vu['p' + sansAcc(x.nom)]) { vu['p' + sansAcc(x.nom)] = 1; f.plan.push(x.nom); } });
+  // Blocs étiquetés : « Définition … », « Propriété : … », « Remarque : … »
+  var bloc = null;
+  function fermer() { if (bloc && bloc.type && bloc.texte) { var tx = bloc.texte.replace(/\s+/g, ' '); if (phraseLisible(tx) || (bloc.type === 'formules' && tx.length >= 4)) ajouter(bloc.type, (bloc.titre ? bloc.titre + ' : ' : '') + tx); } bloc = null; }
+  lignes.forEach(function (l) {
+    l = l.replace(/^[\s.;:,•\-–—*]+/, '');
+    var m = RE_BLOC.exec(l), reste = m ? m[6] || '' : '';
+    // « Définition, représentation graphique : » est un titre de partie, pas un bloc ; « exemple, pour… » est une phrase coupée
+    var entete = m && (estTitre(l) && (/^[,]/.test(reste) || (/:$/.test(l) && reste.split(' ').length >= 2)));
+    var fauxBloc = m && !m[5] && reste && !/^[A-ZÀ-Ý«"“(\d]/.test(reste);
+    if (m && !entete && !fauxBloc) { fermer(); var type = typeBloc(m[1]); bloc = { type: type, titre: m[4] ? propreTitre(m[4]) : '', texte: reste }; return; }
+    var md;
+    if (!bloc && (md = /^([^:]{3,60}?)\s*:\s+(.{8,240})$/.exec(l)) && md[1].split(' ').length <= 8 && !TITRES_GENERIQUES.test(md[1]) && !/^(exemple|remarque|exercice|attention|note|source|consigne|r[ée]ponse|question|corrig[ée]|date|nom|pr[ée]nom|classe|on a( alors)?|soit|donc)/i.test(md[1]) && !estTitre(md[2]) && !estTrou(l) && phraseLisible(l)) { ajouter('definitions', propreTitre(md[1]) + ' : ' + md[2]); return; }
+    if (bloc) {
+      if (estTitre(l) || estTrou(l) || bloc.texte.length > 420 || /^\d+\.\s/.test(l) && bloc.type !== 'exemples') { fermer(); if (!estTitre(l) && !estTrou(l)) return; }
+      else { bloc.texte += (bloc.texte ? ' ' : '') + l; if (/[.!?]$/.test(l) && bloc.type === 'exemples') fermer(); return; }
+    }
+    // Formules : courtes lignes avec un signe mathématique
+    if (l.length <= 80 && /[A-Za-z]/.test(l) && /[=≠≤≥≈→∈∑∫√]/.test(l) && !/[:;]$/.test(l) && !estTrou(l) && l.split(' ').length <= 14) {
+      var fl = l.replace(/^(on a( alors)?|donc|soit|d'où|ainsi)\s*[:,]?\s*/i, '').replace(/[.;,]$/, '');
+      if (/[=≠≤≥≈→∈∑∫√]/.test(fl) && fl.length >= 4 && f.formules.length < 10) { var kf = sansAcc(fl).replace(/\s/g, ''); if (!vu['f' + kf]) { vu['f' + kf] = 1; f.formules.push(couper(fl, 90)); } }
+    }
+  });
+  fermer();
+  // Phrases définitoires et remarques repérées dans le texte courant
+  var phrases = phrasesDe(lignes.filter(function (l) { return !estTitre(l) && !estTrou(l); }).join('\n')).filter(phraseLisible);
+  phrases.forEach(function (s) {
+    if (f.definitions.length < 6 && /^(On (appelle|nomme|dit qu[e']|note)|Une? [^,]{2,40} (est|désigne) (un|une|l[ae']|les|des) )/i.test(s)) ajouter('definitions', s);
+    else if (f.proprietes.length < 6 && /^(Si .{3,80}, alors|Pour tout|Toute? .{3,40} (est|admet|possède|vérifie)|La somme|Le produit|Il existe)/i.test(s)) ajouter('proprietes', s);
+    else if (f.remarques.length < 5 && /\b(attention|pi[èe]ge|erreur|ne peut (pas )?être|seulement|uniquement|interdit|sauf|ne pas confondre|n'existe pas|à condition)\b/i.test(s)) ajouter('remarques', s);
+    else if (f.reperes.length < 6 && s.length <= 170 && /\b(1[0-9]{3}|20[0-2][0-9])\b/.test(s) && !/\b(1[0-9]{3}|20[0-2][0-9])\b.*\b(1[0-9]{3}|20[0-2][0-9])\b.*\b(1[0-9]{3}|20[0-2][0-9])\b/.test(s)) ajouter('reperes', s);
+  });
+  // Vocabulaire : « noté u_n », « appelé raison »
+  var tout = lignes.join(' '), mv, re = /\b(not[ée]e?s?|appel[ée]e?s?|nomm[ée]e?s?)\s+(aussi\s+|également\s+)?[«"“]?\s*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9' ’\-]{1,28}?)\s*[»"”]?(?=[\s,.;:)(]|$)/g;
+  while ((mv = re.exec(tout)) && f.vocabulaire.length < 8) { var term = mv[3].replace(/\s+(de|du|des|la|le|les|un|une|d|l|et|ou|par|pour|en|est|qui|que)$/i, '').replace(/^\s+|\s+$/g, ''); if (term.length >= 2 && term.length <= 30 && !ESTVIDE[sansAcc(term)] && !vu['v' + sansAcc(term)]) { vu['v' + sansAcc(term)] = 1; f.vocabulaire.push(term); } }
+  return f;
+}
+function ficheVide(f) { return !f || !['definitions', 'proprietes', 'formules', 'remarques', 'exemples', 'methodes', 'vocabulaire', 'reperes'].some(function (k) { return f[k] && f[k].length; }); }
+function fusionnerFiche(a, b) {
+  if (!a) return b; if (!b) return a; var out = {};
+  Object.keys(a).concat(Object.keys(b)).forEach(function (k) { var vu = {}; out[k] = (a[k] || []).concat(b[k] || []).filter(function (x) { var s = sansAcc(x).slice(0, 60); if (vu[s]) return false; vu[s] = 1; return true; }); });
+  return out;
+}
+// Résumé construit à partir de la structure : de quoi parle le cours, définitions clés, propriétés, piège
+function resumerFiche(f, titre, extractif) {
+  var parts = [];
+  if (titre && f.plan.length >= 2) parts.push('Ce cours sur « ' + titre + ' » couvre : ' + f.plan.slice(0, 5).map(function (p) { return p.replace(/\s*:$/, '').toLowerCase(); }).join(', ') + '.');
+  f.definitions.slice(0, 2).forEach(function (d) { parts.push(d); });
+  f.proprietes.slice(0, 2).forEach(function (p) { parts.push(p); });
+  if (f.formules.length) parts.push('Formule' + (f.formules.length > 1 ? 's' : '') + ' à connaître : ' + f.formules.slice(0, 3).join(' ; ') + '.');
+  if (f.remarques.length) parts.push(f.remarques[0]);
+  if (!f.definitions.length && f.reperes && f.reperes.length) parts.push(f.reperes[0]);
+  var r = parts.join(' ');
+  if (r.length < 120) r = (r ? r + ' ' : '') + (extractif || '');
+  return couper(r, 800);
+}
+function texteFiche(c) {
+  var f = c.fiche; if (!f) return c.resume || '';
+  var s = [];
+  if (f.definitions.length) s.push('À retenir. ' + f.definitions.join(' '));
+  if (f.proprietes.length) s.push('Propriétés. ' + f.proprietes.join(' '));
+  if (f.remarques.length) s.push('Attention. ' + f.remarques.join(' '));
+  return s.join(' ');
+}
+function blocFiche(c) {
+  var f = c.fiche; if (ficheVide(f)) return '';
+  function section(titre, xs, rendu) { if (!xs || !xs.length) return ''; return '<div class="eyebrow" style="margin-top:10px">' + titre + '</div><ul class="attendus">' + xs.map(function (x) { return '<li>' + (rendu ? rendu(x) : fmt(x)) + '</li>'; }).join('') + '</ul>'; }
+  return '<div class="card st-s"><div class="row"><span class="eyebrow">Fiche de révision</span>' + boutonEcouter(texteFiche(c)) + '</div>' +
+    '<div class="mut">Construite à partir de ton cours : définitions, propriétés, formules et pièges repérés dans le texte.</div>' +
+    section('À retenir', f.definitions) + section('Propriétés et règles', f.proprietes) +
+    section('Formules', f.formules, function (x) { return '<b>' + fmt(x) + '</b>'; }) +
+    section('Méthodes', f.methodes) + section('Repères et dates', f.reperes) + section('Pièges et remarques', f.remarques) + section('Exemples du cours', f.exemples) +
+    (f.vocabulaire.length ? '<div class="eyebrow" style="margin-top:10px">Vocabulaire</div><div class="srcs">' + f.vocabulaire.map(function (v) { return '<span class="badge b-indigo">' + esc(v) + '</span>'; }).join('') + '</div>' : '') +
+    (f.plan.length >= 2 ? '<div class="eyebrow" style="margin-top:10px">Plan du cours</div><ol class="attendus" style="padding-left:18px">' + f.plan.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ol>' : '') +
+    '</div>';
+}
 
 function analyserTexte(brut, progChap) {
   var t = nettoyer(brut), lignes = t.split('\n').map(function (l) { return l.replace(/^\s+|\s+$/g, ''); }).filter(Boolean);
@@ -1820,14 +1998,19 @@ function analyserTexte(brut, progChap) {
     c.n = best;
   });
 
-  /* Résumé : les 3 phrases les plus représentatives, dans l’ordre du cours */
-  var resume;
-  if (contenu.join(' ').length <= 420) resume = contenu.join(' ');
+  /* Fiche de révision, puis résumé : d’abord la structure du cours, sinon les phrases les plus représentatives */
+  var fiche = construireFiche(lignes, titres), titreDoc = estTitre(lignes[0] || '') ? propreTitre(lignes[0]) : (titres[0] ? titres[0].nom : '');
+  var lisibles = phrases.filter(phraseLisible), extractif;
+  if (contenu.join(' ').length <= 420) extractif = lisibles.join(' ') || contenu.join(' ');
   else {
-    var notees = phrases.map(function (s, i) { var ms = motsSignif(s), sc = 0; ms.forEach(function (w) { sc += freq[w] || 0; }); return { i: i, s: s, sc: ms.length ? sc / Math.sqrt(ms.length + 4) : 0 }; });
-    resume = notees.slice().sort(function (a, b) { return b.sc - a.sc; }).slice(0, 3).sort(function (a, b) { return a.i - b.i; }).map(function (x) { return x.s; }).join(' ');
-    if (!resume) resume = couper(t.replace(/\n+/g, ' '), 600);
+    var notees = lisibles.map(function (s, i) { var ms = motsSignif(s), sc = 0; ms.forEach(function (w) { sc += freq[w] || 0; }); return { i: i, s: s, sc: ms.length ? sc / Math.sqrt(ms.length + 4) : 0 }; });
+    extractif = notees.slice().sort(function (a, b) { return b.sc - a.sc; }).slice(0, 3).sort(function (a, b) { return a.i - b.i; }).map(function (x) { return x.s; }).join(' ');
+    if (!extractif) extractif = couper(lisibles.join(' ') || t.replace(/\n+/g, ' '), 600);
   }
+  var resume = resumerFiche(fiche, titreDoc, extractif);
+  // Les définitions et formules de la fiche donnent aussi des flashcards
+  fiche.definitions.forEach(function (d) { var m = /^(.{3,50}?)\s*:\s+(.{8,})$/.exec(d); if (m) carte('Que signifie « ' + m[1] + ' » ?', m[2], notions[0], 'def', m[1]); });
+  fiche.formules.forEach(function (fl) { var m = /^(.{1,40}?)\s*=\s*(.{1,60})$/.exec(fl); if (m) carte('Complète : ' + m[1] + ' = …', m[2], notions[0], 'formule', m[1]); });
 
   /* Quiz : choisir la bonne définition, la bonne date ou la bonne formule */
   var quiz = [], defs = cartes.filter(function (c) { return c.genre === 'def'; }), dates = cartes.filter(function (c) { return c.genre === 'date'; }), formules = cartes.filter(function (c) { return c.genre === 'formule'; });
@@ -1846,7 +2029,7 @@ function analyserTexte(brut, progChap) {
     quiz.push({ n: c.n, q: c.q.replace(' (en quelle année ?)', ''), o: o, a: o.indexOf(c.r), e: 'C’était en ' + c.r + '.', h: ['Situe l’événement avant ou après les autres dates de ton cours.', 'Pense aux autres événements de la même période.'] });
   });
   quiz = quiz.slice(0, 6);
-  return { texte: t, mots: (t.match(/\S+/g) || []).length, resume: couper(resume, 700), notions: notions, cartes: cartes, quiz: quiz, officielles: officielles.length };
+  return { texte: t, mots: (t.match(/\S+/g) || []).length, resume: couper(resume, 800), fiche: fiche, notions: notions, cartes: cartes, quiz: quiz, officielles: officielles.length };
 }
 
 /* ---------- Déroulé de l’import ---------- */
@@ -1896,10 +2079,11 @@ function enregistrerChapitre(a, avert) {
     c.cartes = c.cartes.concat(cartes); c.quiz = c.quiz.concat(a.quiz); c.sources = (c.sources || []).concat(sources);
     c.texte = ((c.texte || '') + '\n\n' + a.texte).replace(/^\s+/, ''); c.importe = true;
     if (!c.resume) c.resume = a.resume;
+    c.fiche = fusionnerFiche(c.fiche, a.fiche);
   } else {
     var pr = IMP.progChap ? progRef(IMP.progChap) : {};
     c = { id: 'imp' + Date.now(), mat: mat, titre: pr.c ? titreCourt(pr.c.titre) : (IMP.titre.replace(/^\s+|\s+$/g, '') || a.notions[0]), src: sources.length + ' source' + (sources.length > 1 ? 's' : ''),
-      resume: a.resume, notions: a.notions, cartes: cartes, quiz: a.quiz, importe: true, sources: sources, texte: a.texte };
+      resume: a.resume, fiche: a.fiche, notions: a.notions, cartes: cartes, quiz: a.quiz, importe: true, sources: sources, texte: a.texte };
     if (IMP.progChap) PROGMAP[c.id] = IMP.progChap;
     CHAPS.push(c);
   }
