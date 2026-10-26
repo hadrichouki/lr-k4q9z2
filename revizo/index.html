@@ -1896,6 +1896,8 @@ function supprimerChapitre(id) {
 function matieresImport() {
   var l = MATS.map(function (m) { return [m[0], m[1]]; });
   mesProgrammes().forEach(function (p) { var b = p.matiereId; if (!l.some(function (x) { return x[0] === b; }) && ['eps', 'emc', 'maths-tc'].indexOf(b) < 0) l.push([b, nomCourt(p)]); });
+  // Puis les autres matières courantes, pour un cours hors profil (option, autre classe…)
+  ['maths', 'pc', 'svt', 'hg', 'francais', 'philo', 'ses', 'lv', 'nsi', 'hggsp', 'autre'].forEach(function (b) { if (!l.some(function (x) { return baseMatiere(x[0]) === b; })) l.push([b, b === 'autre' ? 'Autre matière' : MATIERES[b].nom]); });
   return l;
 }
 function importer() {
