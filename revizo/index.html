@@ -305,12 +305,12 @@ textarea.rep { display: block; width: 100%; min-height: 96px; padding: 12px; bor
 </head>
 <body>
 <div class="legende">
-  <b>Révizo · maquette interactive</b><br>Tout est cliquable. Données d’exemple.
+  <b>Révizo · version de démonstration</b><br>Tu pars de zéro : tes cours, ta progression et ton profil restent dans ce navigateur, rien n’est envoyé.
   <ul>
-    <li><b>Session du jour</b> : le gros bouton de l’accueil.</li>
-    <li><b>Tuteur partout</b> : la bulle « Demander » en bas à droite. Sélectionne une phrase d’une fiche pour « Explique-moi ça ».</li>
-    <li><b>Couleurs et formules</b> : Cours › Suites numériques.</li>
-    <li><b>Confort</b> : le bouton réglages en haut (thème sombre, taille du texte, lecture facilitée, voix).</li>
+    <li><b>Importer</b> : le bouton + en bas. Photos (lecture du texte sur l’appareil), PDF, Word ou texte collé.</li>
+    <li><b>Session du jour</b> : apparaît sur l’accueil dès ton premier cours importé.</li>
+    <li><b>Tuteur</b> : la bulle en bas à droite. Dans cette version, il répond à partir de tes cours et des programmes officiels.</li>
+    <li><b>Pour découvrir</b> : « Voir avec des cours d’exemple », effaçable dans Réglages › Mes données.</li>
   </ul>
 </div>
 <div class="scene"><div class="phone" id="phone"><div id="app"></div></div></div>
@@ -444,8 +444,9 @@ function barre(p, gain) {
 function pct(x) { return Math.round(x * 100) + ' %'; }
 
 /* ---------- Cours de l’élève (données d’exemple) ---------- */
-var MATS = [['maths', 'Maths', '11'], ['philo', 'Philosophie', '17'], ['hg', 'Histoire-géo', '8']];
-var CHAPS = [
+var DEMO_MATS = [['maths', 'Maths', '11'], ['philo', 'Philosophie', '17'], ['hg', 'Histoire-géo', '8']];
+var MATS = [];
+var DEMO_CHAPS = [
   { id: 'suites', mat: 'maths', titre: 'Suites numériques', src: '3 photos et 1 note vocale',
     resume: 'Une suite géométrique multiplie chaque terme par la raison $q$ : $u_{n} = u_{0} × q^{n}$. Une suite arithmétique ajoute une constante $r$ : $u_{n} = u_{0} + n × r$. La somme des termes d’une suite géométrique vaut $u_{0} × [[1 − q^{n+1} // 1 − q]]$ quand $q ≠ 1$.',
     notions: ['Suites arithmétiques', 'Suites géométriques', 'Somme des termes'],
@@ -496,35 +497,45 @@ var CHAPS = [
       { n: 'Doctrines et blocs', q: 'La doctrine Truman (1947) vise à…', o: ['endiguer le communisme', 'désarmer l’Europe', 'créer l’ONU'], a: 0, e: 'Le containment : aider les pays menacés par l’expansion soviétique.',
         h: ['On est au tout début de la guerre froide.', 'Le mot anglais est « containment ».'] }] }
 ];
+var CHAPS = [];
 function chap(id) { for (var i = 0; i < CHAPS.length; i++) if (CHAPS[i].id === id) return CHAPS[i]; }
 function chapDeNotion(n) { for (var i = 0; i < CHAPS.length; i++) if (CHAPS[i].notions.indexOf(n) >= 0) return CHAPS[i]; }
 function nomMat(id) { for (var i = 0; i < MATS.length; i++) if (MATS[i][0] === id) return MATS[i][1]; return MATIERES[mk(id)].nom; }
 
 /* Maîtrise par notion : c’est ce qui évolue quand l’élève révise */
-var MAI = { 'Suites arithmétiques': .8, 'Suites géométriques': .5, 'Somme des termes': .3, 'Arbre pondéré': .7, 'Probabilités totales': .55, 'Indépendance': .6,
+var DEMO_MAI = { 'Suites arithmétiques': .8, 'Suites géométriques': .5, 'Somme des termes': .3, 'Arbre pondéré': .7, 'Probabilités totales': .55, 'Indépendance': .6,
   'Conscience et inconscient': .6, 'Problématiser un sujet': .35, 'Liberté et déterminisme': .7, 'Autonomie': .78, 'Routes et détroits': .75, 'ZEE et souveraineté': .62,
   'Les grandes crises': .38, 'Doctrines et blocs': .45 };
+var MAI = {};
 function maj(n, d) { if (MAI[n] === undefined) return; MAI[n] = Math.max(0, Math.min(1, MAI[n] + d)); }
-function maitriseChap(c) { var s = 0; c.notions.forEach(function (n) { s += MAI[n]; }); return s / c.notions.length; }
+function maitriseChap(c) { var s = 0, k = 0; c.notions.forEach(function (n) { if (MAI[n] !== undefined) { s += MAI[n]; k++; } }); return k ? s / k : .5; }
 function etat(x) { return x < .4 ? ['À revoir', 'ko'] : x < .7 ? ['En cours', 'warn'] : ['Acquis', 'ok']; }
-function pointsFaibles(nb) { return Object.keys(MAI).sort(function (a, b) { return MAI[a] - MAI[b]; }).slice(0, nb); }
+function pointsFaibles(nb) { return Object.keys(MAI).filter(function (n) { return chapDeNotion(n); }).sort(function (a, b) { return MAI[a] - MAI[b]; }).slice(0, nb); }
 
 /* Contrôle à venir (Pronote) : sert à la jauge de préparation */
-var CONTROLE = { mat: 'maths', chap: 'suites', titre: 'Contrôle · Suites numériques', date: new Date(2026, 9, 20) };
+var DEMO_CONTROLE = { mat: 'maths', chap: 'suites', titre: 'Contrôle · Suites numériques', jours: 6 };
+var CONTROLE = null; // { mat, chap, titre, date } saisi par l’élève (plus tard : Pronote)
+try { var ct0 = JSON.parse(localStorage.getItem('revizo-controle') || 'null'); if (ct0 && ct0.date) { CONTROLE = ct0; CONTROLE.date = new Date(ct0.date); } } catch (e) {}
+function sauverControle() { try { if (CONTROLE) localStorage.setItem('revizo-controle', JSON.stringify({ mat: CONTROLE.mat, chap: CONTROLE.chap, titre: CONTROLE.titre, date: CONTROLE.date.getTime() })); else localStorage.removeItem('revizo-controle'); } catch (e) {} }
+function controleValide() { return CONTROLE && chap(CONTROLE.chap) ? CONTROLE : null; }
 function joursAvant(d) { var a = new Date(); a.setHours(0, 0, 0, 0); return Math.max(0, Math.round((d - a) / 864e5)); }
-function preparation() { return maitriseChap(chap(CONTROLE.chap)); }
-var SERIE = 5; // jours de révision d’affilée
+function preparation() { var c = controleValide(); return c ? maitriseChap(chap(c.chap)) : null; }
 
 /* ---------- Programmes officiels du lycée (données réelles, embarquées dans la page) ---------- */
 var PD = window.REVIZO_PROGRAMMES || { annee: '', programmes: [], videos: { sources: [], chapitres: [] } };
 var PROGS = PD.programmes;
-var ELEVE = { niveau: 'terminale', voie: 'generale', specialites: ['maths', 'ses'] };
+var ELEVE = { prenom: '', niveau: 'terminale', voie: 'generale', serie: 'STMG', specialites: [] };
+try { var el0 = JSON.parse(localStorage.getItem('revizo-profil') || 'null'); if (el0) for (var ke in el0) ELEVE[ke] = el0[ke]; } catch (e) {}
+function sauverProfil() { try { localStorage.setItem('revizo-profil', JSON.stringify(ELEVE)); } catch (e) {} }
+function prenom() { return ELEVE.prenom || 'toi'; }
+function specialitesPossibles(niveau) { var out = []; PROGS.forEach(function (p) { if (!p.aVenir && p.voie === 'generale' && p.niveau === niveau && p.statut === 'spécialité' && !out.some(function (x) { return x[0] === p.matiereId; })) out.push([p.matiereId, nomCourt(p)]); }); return out; }
 var NIVS = [['seconde', 'Seconde'], ['premiere', 'Première'], ['terminale', 'Terminale']];
 var VOIESM = [['generale', 'Générale'], ['technologique', 'Techno'], ['professionnelle', 'Pro']];
 var SERIESM = ['STMG', 'STI2D', 'STL', 'ST2S', 'STD2A', 'STHR', 'S2TMD', 'STAV'];
 var NOMS = { hggsp: 'HGGSP', hlp: 'HLP', ses: 'SES', emc: 'EMC', eps: 'EPS', eppcs: 'EPPCS', dgemc: 'DGEMC', es: 'Enseignement scientifique',
   'maths-tc': 'Maths de l’enseignement scientifique', 'maths-comp': 'Maths complémentaires', 'maths-exp': 'Maths expertes', maths: 'Maths', philo: 'Philosophie', hg: 'Histoire-géo' };
-var PROGMAP = { suites: 'gen-tle-maths#4', probas: 'gen-1re-maths#8', conscience: 'gen-tle-philo#0', liberte: 'gen-tle-philo#0', mers: 'gen-tle-hg#11', guerrefroide: 'gen-tle-hg#4' };
+var DEMO_PROGMAP = { suites: 'gen-tle-maths#4', probas: 'gen-1re-maths#8', conscience: 'gen-tle-philo#0', liberte: 'gen-tle-philo#0', mers: 'gen-tle-hg#11', guerrefroide: 'gen-tle-hg#4' };
+var PROGMAP = {};
 function nomCourt(p) { return NOMS[p.matiereId] || p.matiere; }
 function nivNom(id) { for (var i = 0; i < NIVS.length; i++) if (NIVS[i][0] === id) return NIVS[i][1]; return id; }
 function progById(id) { for (var i = 0; i < PROGS.length; i++) if (PROGS[i].id === id) return PROGS[i]; return null; }
@@ -540,7 +551,9 @@ function typeEval(ev) {
 }
 function mesProgrammes() {
   return PROGS.filter(function (p) {
-    if (p.aVenir || p.niveau !== ELEVE.niveau || p.voie !== 'generale') return false;
+    if (p.aVenir || p.niveau !== ELEVE.niveau || p.voie !== ELEVE.voie) return false;
+    if (ELEVE.voie === 'technologique') return !p.serie || p.serie === ELEVE.serie;
+    if (ELEVE.voie !== 'generale') return true;
     if (p.matiereId === 'maths-tc') return ELEVE.specialites.indexOf('maths') < 0;
     return p.statut === 'tronc commun' || ELEVE.specialites.indexOf(p.matiereId) >= 0;
   });
@@ -607,22 +620,53 @@ var DROP = { photo: ['Prendre une photo', 'ou choisir dans ta galerie'], fichier
 var RAPPELS = { actif: true, heure: '18', veille: true, calme: true };
 try { var rp = JSON.parse(localStorage.getItem('revizo-rappels') || 'null'); if (rp) for (var kr in rp) RAPPELS[kr] = rp[kr]; } catch (e) {}
 function sauverRappels() { try { localStorage.setItem('revizo-rappels', JSON.stringify(RAPPELS)); } catch (e) {} }
-var OBJECTIF = { cible: 4, faites: 2 }; // sessions cette semaine
+var OBJECTIF = { cible: 4 }; // sessions visées par semaine
+try { var ob0 = JSON.parse(localStorage.getItem('revizo-objectif') || 'null'); if (ob0 && ob0.cible) OBJECTIF.cible = ob0.cible; } catch (e) {}
+function sauverObjectif() { try { localStorage.setItem('revizo-objectif', JSON.stringify(OBJECTIF)); } catch (e) {} }
 var PARENT = { email: '', statut: 'aucun' }; // aucun | invite | lie
+try { var pa0 = JSON.parse(localStorage.getItem('revizo-parent') || 'null'); if (pa0) PARENT = pa0; } catch (e) {}
+function sauverParent() { try { localStorage.setItem('revizo-parent', JSON.stringify(PARENT)); } catch (e) {} }
 var ONB_FAIT = false;
 try { ONB_FAIT = localStorage.getItem('revizo-onb') === '1'; } catch (e) {}
 
-/* Historique des 5 dernières semaines (minutes par jour), cohérent avec la série en cours */
-var HISTO = (function () {
-  var motif = [0, 12, 18, 0, 25, 9, 0, 15, 0, 22, 14, 30, 0, 0, 11, 16, 0, 20, 0, 8, 0, 0, 14, 19, 0, 26, 0, 12, 22, 15, 18, 24, 10], out = [];
-  for (var i = 0; i < 34; i++) out.push(motif[i % motif.length]);
-  out[29] = 14; out[30] = 18; out[31] = 24; out[32] = 10; out[33] = 16; // 5 derniers jours (série)
-  return out; // + aujourd’hui ajouté dynamiquement
-})();
-function minutesAujourdhui() { return S.sessFaite ? 13 : 0; }
-var EVOL = { maths: [.48, .5, .55, .58], philo: [.45, .48, .5, .52], hg: [.5, .52, .55, .55] }; // maîtrise moyenne, 4 dernières semaines
+/* Activité réelle de l’élève : minutes et sessions par jour, maîtrise moyenne par matière et par semaine */
+var ACTIVITE = { jours: {}, sessions: {}, evol: {} };
+try { var ac0 = JSON.parse(localStorage.getItem('revizo-activite') || 'null'); if (ac0 && ac0.jours) ACTIVITE = ac0; } catch (e) {}
+function sauverActivite() { try { localStorage.setItem('revizo-activite', JSON.stringify(ACTIVITE)); } catch (e) {} }
+function cleJour(d) { d = d || new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+function cleSemaine(d) { d = d || new Date(); var l = new Date(d.getTime()); l.setHours(0, 0, 0, 0); l.setDate(l.getDate() - (l.getDay() + 6) % 7); return cleJour(l); }
+function minutesJour(d) { return ACTIVITE.jours[cleJour(d)] || 0; }
+function minutesAujourdhui() { return minutesJour(); }
+function histo(n) { var out = []; for (var i = n - 1; i >= 0; i--) out.push(minutesJour(new Date(Date.now() - i * 864e5))); return out; }
+function moyenneMat(m) { var cs = CHAPS.filter(function (c) { return c.mat === m; }); if (!cs.length) return null; return cs.reduce(function (a, c) { return a + maitriseChap(c); }, 0) / cs.length; }
+function enregistrerSession(minutes) {
+  var k = cleJour(), sem = cleSemaine();
+  ACTIVITE.jours[k] = (ACTIVITE.jours[k] || 0) + minutes; ACTIVITE.sessions[k] = (ACTIVITE.sessions[k] || 0) + 1;
+  MATS.forEach(function (m) {
+    var moy = moyenneMat(m[0]); if (moy === null) return;
+    var e = ACTIVITE.evol[m[0]] || (ACTIVITE.evol[m[0]] = []);
+    if (e.length && e[e.length - 1].s === sem) e[e.length - 1].v = moy; else e.push({ s: sem, v: moy });
+    if (e.length > 8) e.shift();
+  });
+  sauverActivite();
+}
+function evolution(m) { return (ACTIVITE.evol[m] || []).map(function (x) { return x.v; }); }
+function sessionsSemaine() { var n = 0, auj = new Date(), decal = (auj.getDay() + 6) % 7; for (var i = 0; i <= decal; i++) n += ACTIVITE.sessions[cleJour(new Date(auj.getTime() - i * 864e5))] || 0; return n; }
+// Jours d’affilée : un jour de repos par semaine ne casse pas la série
+function serie() {
+  var n = 0, d = new Date(), joker = true, depuis = 0;
+  if (!minutesJour(d)) d = new Date(d.getTime() - 864e5);
+  for (var i = 0; i < 400; i++) {
+    var m = minutesJour(d);
+    if (m) { n++; } else if (joker && n > 0 && minutesJour(new Date(d.getTime() - 864e5))) { joker = false; } else break;
+    if (++depuis % 7 === 0) joker = true;
+    d = new Date(d.getTime() - 864e5);
+  }
+  return n;
+}
 
 function sparkline(vals, k) {
+  if (vals.length < 2) return '<span class="mut petit">dès la 2e semaine</span>';
   var w = 120, h = 36, min = Math.min.apply(null, vals) - .05, max = Math.max.apply(null, vals) + .05;
   var pts = vals.map(function (v, i) { return [Math.round(i / (vals.length - 1) * (w - 8) + 4), Math.round(h - 4 - (v - min) / (max - min) * (h - 8))]; });
   var d = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0] + ' ' + p[1]; }).join(' ');
@@ -633,7 +677,7 @@ function sparkline(vals, k) {
     '<circle cx="' + last[0] + '" cy="' + last[1] + '" r="3.5" fill="var(--m)"/></svg>';
 }
 function calendrier() {
-  var jours = HISTO.concat([minutesAujourdhui()]), auj = new Date(), cases = '';
+  var jours = histo(35), auj = new Date(), cases = '';
   var debut = new Date(auj.getTime() - (jours.length - 1) * 864e5), decal = (debut.getDay() + 6) % 7; // lundi = 0
   for (var v = 0; v < decal; v++) cases += '<i class="vide"></i>';
   jours.forEach(function (m, i) {
@@ -644,16 +688,16 @@ function calendrier() {
     '<div class="legende-cal mut"><span>repos</span><i class="n0"></i><i class="n1"></i><i class="n2"></i><i class="n3"></i><span>30 min</span></div>';
 }
 function progression() {
-  var tot = HISTO.concat([minutesAujourdhui()]).slice(-7).reduce(function (a, b) { return a + b; }, 0);
+  var tot = histo(7).reduce(function (a, b) { return a + b; }, 0);
   return '<div class="st"><button class="lien" data-act="tab" data-v="accueil">‹ Accueil</button><h1 class="display">Ma progression</h1>' +
-    '<div class="g3"><div class="card stat"><b class="flamme" style="font-size:1.6em">' + ico('flamme', 22) + SERIE + '</b><span class="mut">jours d’affilée</span></div><div class="card stat"><b>' + tot + ' min</b><span class="mut">cette semaine</span></div><div class="card stat"><b>' + OBJECTIF.faites + '/' + OBJECTIF.cible + '</b><span class="mut">sessions</span></div></div>' +
+    '<div class="g3"><div class="card stat"><b class="flamme" style="font-size:1.6em">' + ico('flamme', 22) + serie() + '</b><span class="mut">jours d’affilée</span></div><div class="card stat"><b>' + tot + ' min</b><span class="mut">cette semaine</span></div><div class="card stat"><b>' + sessionsSemaine() + '/' + OBJECTIF.cible + '</b><span class="mut">sessions</span></div></div>' +
     '<div class="card st-s"><div class="row"><b>Tes 5 dernières semaines</b><span class="mut">1 jour de repos par semaine ne casse pas ta série</span></div>' + calendrier() + '</div>' +
-    '<div class="card st-s"><div class="row"><b>Objectif de la semaine</b><span class="mut">' + OBJECTIF.faites + ' sur ' + OBJECTIF.cible + ' sessions</span></div>' +
-      '<div class="jauge"><i style="width:' + Math.min(100, Math.round(OBJECTIF.faites / OBJECTIF.cible * 100)) + '%;background:var(--acc-btn)"></i></div>' +
+    '<div class="card st-s"><div class="row"><b>Objectif de la semaine</b><span class="mut">' + sessionsSemaine() + ' sur ' + OBJECTIF.cible + ' sessions</span></div>' +
+      '<div class="jauge"><i style="width:' + Math.min(100, Math.round(sessionsSemaine() / OBJECTIF.cible * 100)) + '%;background:var(--acc-btn)"></i></div>' +
       '<div class="mut">Choisis ton rythme. Tu peux le changer quand tu veux.</div>' + seg([['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], String(OBJECTIF.cible), 'objectif') + '</div>' +
-    '<div class="eyebrow">Par matière</div>' + MATS.map(function (m) {
-      var k = mk(m[0]), cs = CHAPS.filter(function (c) { return c.mat === m[0]; }), moy = cs.reduce(function (a, c) { return a + maitriseChap(c); }, 0) / cs.length;
-      var ev = EVOL[m[0]].slice(0, 3).concat([moy]), d = moy - EVOL[m[0]][0], acquis = cs.filter(function (c) { return maitriseChap(c) >= .7; }).length;
+    (MATS.length ? '<div class="eyebrow">Par matière</div>' : '<div class="card st-s"><b>Pas encore de cours</b><div class="mut">Importe ton premier cours : ta progression par matière apparaîtra ici.</div><button class="btn pri" data-act="tab" data-v="importer">Importer un cours</button></div>') + MATS.map(function (m) {
+      var k = mk(m[0]), cs = CHAPS.filter(function (c) { return c.mat === m[0]; }), moy = moyenneMat(m[0]); if (moy === null) return '';
+      var hist = evolution(m[0]), ev = hist.slice(-3).concat([moy]), d = hist.length ? moy - hist[0] : 0, acquis = cs.filter(function (c) { return maitriseChap(c) >= .7; }).length;
       return '<div class="card m-' + k + '"><div class="row">' + tuile(m[0]) + '<div class="grow"><b class="titre-mat">' + m[1] + '</b><div class="mut">' + acquis + '/' + cs.length + ' chapitre' + (cs.length > 1 ? 's' : '') + ' acquis · ' + (d >= 0 ? '+' : '') + Math.round(d * 100) + ' pts en 4 semaines</div></div>' +
         '<div style="text-align:right"><b style="font-size:1.2em">' + pct(moy) + '</b><br>' + sparkline(ev, k) + '</div></div></div>';
     }).join('') +
@@ -675,7 +719,7 @@ function blocRappels() {
 
 /* Compte parent : invitation, ce que le parent voit, aperçu du résumé de la semaine */
 function parent() {
-  var tot = HISTO.concat([minutesAujourdhui()]).slice(-7).reduce(function (a, b) { return a + b; }, 0);
+  var tot = histo(7).reduce(function (a, b) { return a + b; }, 0);
   return '<div class="st"><button class="lien" data-act="reglagesRetour">‹ Réglages</button><h1 class="display">Compte parent</h1>' +
     '<div class="mut">Ton parent reçoit chaque dimanche un résumé de ta semaine. C’est toi qui décides de l’inviter.</div>' +
     (PARENT.statut === 'aucun'
@@ -684,11 +728,11 @@ function parent() {
     '<div class="g2"><div class="card st-s"><b style="color:var(--ok)">Ce qu’il voit</b><ul class="attendus coche"><li>Ton temps de révision</li><li>Ta progression par matière</li><li>Tes prochains contrôles</li></ul></div>' +
       '<div class="card st-s"><b style="color:var(--ko)">Ce qu’il ne voit pas</b><ul class="attendus"><li>Tes conversations avec le tuteur</li><li>Tes photos de cours</li><li>Tes réponses aux quiz</li></ul></div></div>' +
     '<div class="eyebrow">Aperçu du résumé envoyé</div>' +
-    '<div class="mail"><div class="mail-tete"><b>La semaine de Léa sur Révizo</b><div class="mut">de : Révizo · dimanche 18 h</div></div>' +
+    '<div class="mail"><div class="mail-tete"><b>La semaine de ' + esc(prenom()) + ' sur Révizo</b><div class="mut">de : Révizo · dimanche 18 h</div></div>' +
       '<div class="st-s" style="padding:14px 16px">' +
-        '<div class="g3"><div class="stat"><b>' + tot + ' min</b><span class="mut">de révision</span></div><div class="stat"><b>' + OBJECTIF.faites + '</b><span class="mut">sessions</span></div><div class="stat"><b>' + SERIE + ' j</b><span class="mut">de suite</span></div></div>' +
-        MATS.map(function (m) { var cs = CHAPS.filter(function (c) { return c.mat === m[0]; }), moy = cs.reduce(function (a, c) { return a + maitriseChap(c); }, 0) / cs.length; return '<div class="m-' + mk(m[0]) + '"><div class="row"><span>' + m[1] + '</span><span class="mut">' + pct(moy) + '</span></div>' + barre(moy) + '</div>'; }).join('') +
-        '<div class="evalbox"><b>À venir</b> · Contrôle de maths sur les suites, dans ' + joursAvant(CONTROLE.date) + ' jours. Léa est prête à ' + pct(preparation()) + '.</div>' +
+        '<div class="g3"><div class="stat"><b>' + tot + ' min</b><span class="mut">de révision</span></div><div class="stat"><b>' + sessionsSemaine() + '</b><span class="mut">sessions</span></div><div class="stat"><b>' + serie() + ' j</b><span class="mut">de suite</span></div></div>' +
+        MATS.map(function (m) { var moy = moyenneMat(m[0]); if (moy === null) return ''; return '<div class="m-' + mk(m[0]) + '"><div class="row"><span>' + m[1] + '</span><span class="mut">' + pct(moy) + '</span></div>' + barre(moy) + '</div>'; }).join('') +
+        (controleValide() ? '<div class="evalbox"><b>À venir</b> · ' + esc(CONTROLE.titre) + ', dans ' + joursAvant(CONTROLE.date) + ' jours. ' + esc(prenom()) + ' est prêt(e) à ' + pct(preparation()) + '.</div>' : '') +
         '<div class="mut">Un conseil : encouragez la régularité plutôt que la durée. 15 minutes par jour valent mieux qu’une longue séance la veille.</div>' +
       '</div></div>' +
   '</div>';
@@ -698,8 +742,42 @@ function parent() {
 var CONSENT = { age: null, parentEmail: '', parentStatut: 'non requis', ia: false, date: null };
 try { var cs0 = JSON.parse(localStorage.getItem('revizo-consent') || 'null'); if (cs0) CONSENT = cs0; } catch (e) {}
 function sauverConsent() { try { localStorage.setItem('revizo-consent', JSON.stringify(CONSENT)); } catch (e) {} }
+function maxSpecialites() { return ELEVE.niveau === 'premiere' ? 3 : 2; }
+function formulaireProfil() {
+  var spes = ELEVE.voie === 'generale' && ELEVE.niveau !== 'seconde' ? specialitesPossibles(ELEVE.niveau) : [], max = maxSpecialites();
+  return '<div class="card st-s"><label class="mut" for="prenomChamp">Ton prénom</label><input id="prenomChamp" class="champ-txt" autocomplete="given-name" placeholder="Prénom" value="' + esc(ELEVE.prenom) + '">' +
+    '<div class="mut">Ta classe</div>' + seg(NIVS, ELEVE.niveau, 'profNiv') +
+    '<div class="mut">Ta voie</div>' + seg(VOIESM, ELEVE.voie, 'profVoie') +
+    (ELEVE.voie === 'technologique' ? '<div class="mut">Ta série</div><div class="voies">' + SERIESM.map(function (x) { return '<button class="' + (ELEVE.serie === x ? 'on' : '') + '" data-act="profSerie" data-v="' + x + '">' + x + '</button>'; }).join('') + '</div>' : '') +
+    (spes.length ? '<div class="mut">Tes spécialités · ' + ELEVE.specialites.length + '/' + max + '</div><div class="srcs">' + spes.map(function (x) {
+      var on = ELEVE.specialites.indexOf(x[0]) >= 0;
+      return '<button class="badge ' + (on ? 'b-indigo' : '') + '" data-act="profSpe" data-v="' + x[0] + '" aria-pressed="' + on + '" style="' + (on ? '' : 'background:var(--soft);color:var(--txt2)') + '">' + (on ? '✓ ' : '') + esc(x[1]) + '</button>';
+    }).join('') + '</div>' : '') + '</div>';
+}
+function lirePrenom() { var ch = document.getElementById('prenomChamp'); if (ch) ELEVE.prenom = ch.value.replace(/^\s+|\s+$/g, '').slice(0, 30); }
+function profil() {
+  return '<div class="st"><button class="lien" data-act="reglagesRetour">‹ Réglages</button><h1 class="display">Mon profil</h1>' + formulaireProfil() +
+    '<button class="btn pri grand" data-act="profilOk">Enregistrer</button>' +
+    '<div class="card st-s"><b>Mes programmes</b><div class="mut">' + mesProgrammes().map(function (p) { return esc(nomCourt(p)); }).join(' · ') + '</div></div></div>';
+}
+/* Données d’exemple : pour découvrir l’app avec des cours déjà importés (élève fictive) */
+function chargerExemple() {
+  DEMO_MATS.forEach(function (m) { if (!MATS.some(function (y) { return y[0] === m[0]; })) MATS.push(m.slice()); });
+  DEMO_CHAPS.forEach(function (c) { if (chap(c.id)) return; var x = JSON.parse(JSON.stringify(c)); x.importe = true; x.exemple = true; x.sources = [{ nom: 'Cours d’exemple', type: 'texte' }]; CHAPS.push(x); if (DEMO_PROGMAP[x.id]) PROGMAP[x.id] = DEMO_PROGMAP[x.id]; });
+  for (var n in DEMO_MAI) if (MAI[n] === undefined) MAI[n] = DEMO_MAI[n];
+  if (!CONTROLE) { CONTROLE = { mat: DEMO_CONTROLE.mat, chap: DEMO_CONTROLE.chap, titre: DEMO_CONTROLE.titre, date: new Date(Date.now() + DEMO_CONTROLE.jours * 864e5) }; sauverControle(); }
+  var motif = [0, 12, 18, 0, 25, 9, 0, 15, 0, 22, 14, 30, 0, 0, 11, 16, 0, 20, 0, 8, 0, 0, 14, 19, 0, 26, 0, 12, 22, 15, 18, 24, 10, 16];
+  for (var i = 1; i <= motif.length; i++) { var k = cleJour(new Date(Date.now() - i * 864e5)), m = motif[motif.length - i]; if (m && !ACTIVITE.jours[k]) { ACTIVITE.jours[k] = m; ACTIVITE.sessions[k] = 1; } }
+  var ev = { maths: [.48, .5, .55], philo: [.45, .48, .5], hg: [.5, .52, .55] };
+  for (var mm in ev) if (!ACTIVITE.evol[mm]) ACTIVITE.evol[mm] = ev[mm].map(function (v, j) { return { s: cleSemaine(new Date(Date.now() - (3 - j) * 7 * 864e5)), v: v }; });
+  sauverActivite(); sauverImports();
+}
+function toutEffacer() {
+  try { ['revizo-imports', 'revizo-activite', 'revizo-controle', 'revizo-profil', 'revizo-objectif', 'revizo-parent', 'revizo-consent', 'revizo-rappels', 'revizo-onb', 'revizo-reglages'].forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
+  location.reload();
+}
 function onboarding() {
-  var n = S.onb, pas = '<div class="onb-pas">' + [0, 1, 2, 3].map(function (i) { return '<i class="' + (i <= n ? 'on' : '') + '"></i>'; }).join('') + '</div>';
+  var n = S.onb, pas = '<div class="onb-pas">' + [0, 1, 2, 3, 4].map(function (i) { return '<i class="' + (i <= n ? 'on' : '') + '"></i>'; }).join('') + '</div>';
   var h = '<div class="onb">' + pas;
   if (n === 0) h += '<div class="onb-corps st"><span class="logo display" style="font-size:2.2em">Révizo</span><h1 class="display">Révise mieux, en moins de temps.</h1>' +
     '<ul class="attendus coche"><li>Photographie tes cours : on en fait des fiches et des quiz.</li><li>Un tuteur qui t’explique ce que tu n’as pas compris.</li><li>Les programmes officiels et les épreuves du bac.</li></ul></div>' +
@@ -708,7 +786,9 @@ function onboarding() {
     '<div class="g2"><button class="type' + (CONSENT.age === 'moins15' ? ' on' : '') + '" data-act="onbAge" data-v="moins15"><b>Moins de 15 ans</b><span>un parent valide</span></button><button class="type' + (CONSENT.age === 'plus15' ? ' on' : '') + '" data-act="onbAge" data-v="plus15"><b>15 ans ou plus</b><span>tu valides toi-même</span></button></div>' +
     (CONSENT.age === 'moins15' ? '<div class="card st-s"><label class="mut" for="emailParentOnb">E-mail d’un parent</label><input id="emailParentOnb" class="champ-txt" type="email" inputmode="email" placeholder="parent@exemple.fr" value="' + esc(CONSENT.parentEmail) + '"><div class="mut">Ton parent reçoit un lien pour valider. En attendant, tu peux découvrir l’app, mais tes cours ne sont pas analysés.</div></div>' : '') + '</div>' +
     '<div class="onb-bas"><button class="btn pri grand" data-act="onbAgeOk"' + (CONSENT.age ? '' : ' disabled') + '>Continuer</button></div>';
-  else if (n === 2) h += '<div class="onb-corps st"><span class="tuile" style="--m:var(--acc);--mb:var(--acc-bg);width:56px;height:56px">' + ico('ampoule', 30) + '</span><h1 class="display">Révizo utilise une intelligence artificielle</h1>' +
+  else if (n === 2) h += '<div class="onb-corps st"><h1 class="display">Parle-moi de toi</h1><div class="mut">Pour t’appeler par ton prénom et te montrer les bons programmes. Tu pourras changer tout ça dans les réglages.</div>' +
+    formulaireProfil() + '<div class="onb-bas"><button class="btn pri grand" data-act="onbProfilOk">Continuer</button></div>';
+  else if (n === 3) h += '<div class="onb-corps st"><span class="tuile" style="--m:var(--acc);--mb:var(--acc-bg);width:56px;height:56px">' + ico('ampoule', 30) + '</span><h1 class="display">Révizo utilise une intelligence artificielle</h1>' +
     '<ul class="attendus"><li><b>Elle peut se tromper.</b> Vérifie avec ton cours, et signale une erreur d’un geste.</li><li><b>Tes notes sont indicatives.</b> La note d’oral ou de contrôle blanc sert à t’entraîner, pas à t’évaluer officiellement.</li><li><b>Tes cours restent à toi.</b> Ils ne servent pas à entraîner l’IA et ne sont jamais revendus. Pas de publicité.</li><li>Tu peux tout télécharger ou tout effacer, quand tu veux.</li></ul>' +
     '<button class="lien" data-act="voirConfid">Lire la politique de confidentialité</button></div>' +
     '<div class="onb-bas"><button class="btn pri grand" data-act="onbIA">J’ai compris</button></div>';
@@ -723,7 +803,10 @@ function donnees() {
   return '<div class="st"><button class="lien" data-act="reglagesRetour">‹ Réglages</button><h1 class="display">Mes données</h1>' +
     '<div class="card st-s"><div class="row"><b>Accord</b><span class="badge ' + (CONSENT.parentStatut === 'en attente' ? 'b-orange' : 'b-vert') + '">' + (CONSENT.age === 'moins15' ? 'parent : ' + CONSENT.parentStatut : 'donné par toi') + '</span></div>' +
       '<div class="mut">' + (CONSENT.date ? 'Le ' + esc(dateFr(new Date(CONSENT.date), { day: 'numeric', month: 'long', year: 'numeric' })) : 'Pas encore donné') + '. Tu peux le retirer : tes données seront alors effacées.</div>' +
-      (CONSENT.parentStatut === 'en attente' ? '<button class="btn" data-act="validerParent">Simuler la validation du parent</button>' : '') + '</div>' +
+      (CONSENT.parentStatut === 'en attente' ? '<div class="mut">Dans l’app finale, ton parent reçoit un e-mail pour valider. Ici, cette version de démonstration ne peut pas envoyer d’e-mail.</div><button class="btn" data-act="validerParent">Mon parent a validé</button>' : '') + '</div>' +
+    '<div class="card st-s"><b>Sur cet appareil</b><div class="mut">' + CHAPS.filter(function (c) { return c.importe; }).length + ' chapitre' + (CHAPS.length > 1 ? 's' : '') + ' · ' + Object.keys(ACTIVITE.jours).length + ' jour' + (Object.keys(ACTIVITE.jours).length > 1 ? 's' : '') + ' de révision enregistré' + (Object.keys(ACTIVITE.jours).length > 1 ? 's' : '') + '. Tout est stocké dans ce navigateur, rien n’est envoyé.</div>' +
+      (CHAPS.some(function (c) { return c.exemple; }) ? '' : '<button class="btn" data-act="chargerExemple">Charger des cours d’exemple</button>') +
+      '<button class="btn rouge" data-act="toutEffacer">' + (S.confirmeEffacer ? 'Confirmer : tout effacer et recommencer' : 'Tout effacer et recommencer') + '</button></div>' +
     '<div class="card st-s"><b>Ce que Révizo garde, et combien de temps</b>' + lignes.map(function (l) { return '<div class="ligne-d"><div><b>' + l[0] + '</b> · ' + l[1] + '</div><div class="mut">' + l[2] + '</div></div>'; }).join('') +
       '<div class="mut">Stocké en Europe. Jamais revendu. Jamais utilisé pour entraîner une IA. Aucune publicité.</div></div>' +
     '<div class="card st-s"><b>Tes droits</b><button class="btn" data-act="exporter">Télécharger toutes mes données</button><button class="btn" data-act="voirConfid">Politique de confidentialité</button>' +
@@ -787,7 +870,7 @@ function bandeauAVenir(p) {
 var S = { tab: 'accueil', chap: false, openEp: null, prog: null, pchap: null, pniv: 'terminale', pvoie: 'generale',
   rview: 'choix', sel: [], pmat: 'maths', rmode: 'cartes', carte: 0, flipped: false, sues: 0, q: 0, pick: null, hint: 0,
   bmode: 'epreuves', recording: false, sec: 0, hasRec: false, importType: 'photo', importing: false, importDone: false,
-  chat: [{ r: 'a', t: 'Salut Léa. Sur quoi tu bloques ? Je pars de ton cours et du programme officiel. Quand c’est un exercice, je te donne d’abord des indices pour que tu trouves toi-même.' }],
+  chat: [{ r: 'a', t: (ELEVE.prenom ? 'Salut ' + ELEVE.prenom + '. ' : 'Salut. ') + 'Sur quoi tu bloques ? Je pars de ton cours et du programme officiel. Quand c’est un exercice, je te donne d’abord des indices pour que tu trouves toi-même.' }],
   draft: '', typing: false, sheet: null, ctx: null, sess: null, sessFaite: false };
 var iv = null, to = null;
 function set(o) { for (var k in o) S[k] = o[k]; render(); }
@@ -796,24 +879,42 @@ function toast(msg) { var t = document.getElementById('toast'); t.textContent = 
 function dateFr(d, o) { try { return d.toLocaleDateString('fr-FR', o); } catch (e) { return d.toDateString(); } }
 
 /* ===================== Session du jour ===================== */
-var SESS_CHAP = 'suites';
-var SESS_TUT = { n: 'Somme des termes', q: 'À toi d’expliquer : pourquoi la somme $u_{0} + u_{1} + … + u_{n}$ compte-t-elle $n + 1$ termes ?',
-  h: ['Écris les rangs pour $n = 3$ : $u_{0}$, $u_{1}$, $u_{2}$, $u_{3}$. Combien y en a-t-il ?', 'De 1 à $n$, il y a $n$ entiers. Et le rang 0 ?'],
-  e: 'Les rangs vont de 0 à $n$ : il y a $n$ termes de $u_{1}$ à $u_{n}$, plus le terme $u_{0}$, soit $n + 1$ termes. C’est le piège classique des sommes.' };
-function sessCartes() { var c = chap(SESS_CHAP).cartes; return S.sess && S.sess.express ? c.slice(0, 3) : c; }
-function sessQuiz() { var q = chap(SESS_CHAP).quiz.slice().sort(function (a, b) { return MAI[a.n] - MAI[b.n]; }); return S.sess && S.sess.express ? q.slice(0, 2) : q; }
+function chapSession() {
+  var c = controleValide() ? chap(CONTROLE.chap) : null;
+  if (c && (c.cartes.length || c.quiz.length)) return c;
+  var cs = CHAPS.filter(function (x) { return x.cartes.length || x.quiz.length; }).sort(function (x, y) { return maitriseChap(x) - maitriseChap(y); });
+  return cs[0] || null;
+}
+function tuteurSession() {
+  var c = chapSession(), n = c.notions.slice().sort(function (x, y) { return (MAI[x] || 0) - (MAI[y] || 0); })[0] || c.titre;
+  var qz = c.quiz.filter(function (q) { return q.n === n; })[0] || c.quiz[0];
+  return { n: n, q: 'À toi d’expliquer, avec tes mots : qu’est-ce que tu as retenu sur « ' + n + ' » ?',
+    h: qz && qz.h && qz.h.length ? qz.h : ['Commence par une définition en une phrase.', 'Ajoute un exemple tiré de ton cours.'],
+    e: 'Ce qu’il faut retenir : ' + (qz ? qz.e : c.resume) };
+}
+function reponseAcceptable(rep, c, n) {
+  var ref = sansAcc(c.resume + ' ' + n + ' ' + c.quiz.map(function (q) { return q.e; }).join(' ') + ' ' + c.cartes.map(function (k) { return k[0] + ' ' + k[1]; }).join(' '));
+  var mots = sansAcc(rep).split(/[^a-z0-9]+/).filter(function (w) { return w.length >= 5; }), communs = 0, vus = {};
+  mots.forEach(function (w) { if (!vus[w] && ref.indexOf(w) >= 0) { vus[w] = 1; communs++; } });
+  return communs >= 2 || rep.length >= 80;
+}
+function sessCartesDe(c, express) { return express ? c.cartes.slice(0, 3) : c.cartes.slice(0, 8); }
+function sessQuizDe(c, express) { var q = c.quiz.slice().sort(function (a, b) { return (MAI[a.n] || 0) - (MAI[b.n] || 0); }); return express ? q.slice(0, 2) : q.slice(0, 5); }
+function sessCartes() { return sessCartesDe(chapSession(), S.sess && S.sess.express); }
+function sessQuiz() { return sessQuizDe(chapSession(), S.sess && S.sess.express); }
 function demarrerSession(express) {
-  var avant = {}; chap(SESS_CHAP).notions.forEach(function (n) { avant[n] = MAI[n]; });
-  S.sess = { express: !!express, etape: 0, i: 0, flipped: false, pick: null, hint: 0, cartesSues: 0, bonnes: 0, avant: avant, prepAvant: preparation(), t0: Date.now(), rep: '', fait: false, ok: false };
+  var avant = {}; chapSession().notions.forEach(function (n) { avant[n] = MAI[n]; });
+  if (!chapSession()) return go('importer');
+  S.sess = { express: !!express, etape: sessCartes().length ? 0 : 1, i: 0, flipped: false, pick: null, hint: 0, cartesSues: 0, bonnes: 0, avant: avant, prepAvant: preparation(), t0: Date.now(), rep: '', fait: false, ok: false };
   go('session');
 }
 var ETAPES = ['Cartes', 'Quiz', 'Tuteur', 'Bilan'];
 function session() {
-  var s = S.sess, k = mk(chap(SESS_CHAP).mat), total = sessCartes().length + sessQuiz().length + (s.express ? 0 : 1);
+  var s = S.sess, k = mk(chapSession().mat), total = sessCartes().length + sessQuiz().length + (s.express ? 0 : 1);
   var fait = s.etape === 0 ? s.i : s.etape === 1 ? sessCartes().length + s.i : s.etape === 2 ? total - 1 : total;
   var etapes = s.express ? [[0, 'Cartes'], [1, 'Quiz'], [3, 'Bilan']] : [[0, 'Cartes'], [1, 'Quiz'], [2, 'Tuteur'], [3, 'Bilan']];
   var h = '<div class="m-' + k + '"><div class="sess-tete"><div class="row"><button class="fermer" data-act="quitterSess" aria-label="Quitter la session">' + ico('croix', 18) + '</button>' +
-      '<div class="grow"><b>' + (s.express ? 'Session express · 5 min' : 'Session du jour') + '</b><div class="mut">' + chipMat('maths', 'Suites numériques') + '</div></div><span class="mut">' + Math.min(fait, total) + '/' + total + '</span></div>' +
+      '<div class="grow"><b>' + (s.express ? 'Session express · 5 min' : 'Session du jour') + '</b><div class="mut">' + chipMat(chapSession().mat, chapSession().titre) + '</div></div><span class="mut">' + Math.min(fait, total) + '/' + total + '</span></div>' +
       '<div class="barre"><i style="width:' + Math.round(fait / total * 100) + '%"></i></div>' +
       '<div class="pas">' + etapes.map(function (e) { var i = e[0]; return '<span class="' + (i === s.etape ? 'on' : i < s.etape ? 'fait' : '') + '">' + (i < s.etape ? '✓ ' : '') + e[1] + '</span>'; }).join('') + '</div></div>' +
     '<div class="st" style="margin-top:14px">';
@@ -833,22 +934,22 @@ function session() {
         '<div class="g2" style="grid-template-columns:' + (juste ? '1fr' : '1fr 1fr') + '">' + (juste ? '' : '<button class="btn" data-act="tuteurQuestion">Comprendre</button>') +
         '<button class="btn pri" data-act="sNext">' + (s.i === qs.length - 1 ? (s.express ? 'Voir mon bilan' : 'Question du tuteur ›') : 'Suivant') + '</button></div></div>' : '') + '</div>';
   } else if (s.etape === 2) {
-    h += '<div class="bulle a">' + fmt(SESS_TUT.q) + '</div>' +
+    h += '<div class="bulle a">' + fmt(tuteurSession().q) + '</div>' +
       (!s.fait ? '<textarea class="rep" id="sRep" placeholder="Réponds avec tes mots…" aria-label="Ta réponse">' + esc(s.rep) + '</textarea>' +
-        blocIndicesInline(SESS_TUT, s.hint, 'sHint') +
+        blocIndicesInline(tuteurSession(), s.hint, 'sHint') +
         '<div class="g2">' + (PEUT_DICTER && REG.dictee ? '<button class="btn" data-act="dicter" data-v="sRep">' + 'Dicter</button>' : '<span></span>') + '<button class="btn pri" data-act="sRepondre">Envoyer</button></div>'
-      : '<div class="bulle u">' + esc(s.rep) + '</div><div class="bulle a">' + (s.ok ? 'Bien vu. ' : 'Presque. ') + fmt(SESS_TUT.e) + '</div>' +
+      : '<div class="bulle u">' + esc(s.rep) + '</div><div class="bulle a">' + (s.ok ? 'Bien vu. ' : 'Presque. ') + fmt(tuteurSession().e) + '</div>' +
         '<button class="btn pri grand" data-act="sBilan">Voir mon bilan</button>');
   } else {
     var mins = Math.max(1, Math.round((Date.now() - s.t0) / 60000)), prep = preparation();
-    h += '<div class="bravo"><div class="rond-ok">' + ico('coche', 30, 2.6) + '</div><h2 class="display">Session terminée</h2><div class="mut">' + (S.sessFaite ? SERIE : SERIE + 1) + ' jours de révision d’affilée</div></div>' +
+    h += '<div class="bravo"><div class="rond-ok">' + ico('coche', 30, 2.6) + '</div><h2 class="display">Session terminée</h2><div class="mut">' + (ACTIVITE.sessions[cleJour()] ? serie() : serie() + 1) + ' jour' + ((ACTIVITE.sessions[cleJour()] ? serie() : serie() + 1) > 1 ? 's' : '') + ' de révision d’affilée</div></div>' +
       '<div class="g3"><div class="card stat"><b>' + s.cartesSues + '/' + sessCartes().length + '</b><span class="mut">cartes sues</span></div><div class="card stat"><b>' + s.bonnes + '/' + sessQuiz().length + '</b><span class="mut">bonnes réponses</span></div><div class="card stat"><b>' + mins + ' min</b><span class="mut">de travail</span></div></div>' +
-      '<div class="card st"><div class="eyebrow">Ce qui a progressé</div>' + chap(SESS_CHAP).notions.map(function (n) {
+      '<div class="card st"><div class="eyebrow">Ce qui a progressé</div>' + chapSession().notions.map(function (n) {
         var a = s.avant[n], b = MAI[n], d = b - a;
         return '<div><div class="row"><span>' + esc(n) + '</span><span class="' + (d > 0 ? 'b-vert badge' : 'mut') + '">' + pct(a) + ' → ' + pct(b) + '</span></div>' + barre(Math.min(a, b), Math.max(0, d)) + '</div>';
       }).join('') + '</div>' +
-      '<div class="card st-s"><div class="row"><span class="grow"><b>Prêt pour le contrôle de maths</b><br><span class="mut">dans ' + joursAvant(CONTROLE.date) + ' jours</span></span><span class="badge b-vert">' + pct(s.prepAvant) + ' → ' + pct(prep) + '</span></div>' +
-        '<div class="jauge"><i style="width:' + Math.round(prep * 100) + '%"></i></div></div>' +
+      (prep !== null && s.prepAvant !== null ? '<div class="card st-s"><div class="row"><span class="grow"><b>Prêt pour ' + esc(CONTROLE.titre.toLowerCase().replace(/^contrôle/, 'le contrôle')) + '</b><br><span class="mut">dans ' + joursAvant(CONTROLE.date) + ' jour' + (joursAvant(CONTROLE.date) > 1 ? 's' : '') + '</span></span><span class="badge b-vert">' + pct(s.prepAvant) + ' → ' + pct(prep) + '</span></div>' +
+        '<div class="jauge"><i style="width:' + Math.round(prep * 100) + '%"></i></div></div>' : '') +
       '<button class="btn pri grand" data-act="finSess">Terminer</button>';
   }
   return h + '</div></div>';
@@ -863,14 +964,14 @@ function blocIndicesInline(q, n, act) {
 
 /* ===================== Tuteur : contexte, réponses de démo ===================== */
 function questionCourante() {
-  if (S.tab === 'session' && S.sess) { if (S.sess.etape === 1) return sessQuiz()[S.sess.i]; if (S.sess.etape === 2) return SESS_TUT; }
+  if (S.tab === 'session' && S.sess) { if (S.sess.etape === 1) return sessQuiz()[S.sess.i]; if (S.sess.etape === 2) return tuteurSession(); }
   if (S.tab === 'reviser' && S.rview === 'session' && S.rmode === 'quiz') { var qs = questions(); return qs[S.q % qs.length]; }
   return null;
 }
 function contexte() {
   var q = questionCourante();
-  if (q) { var cq = chapDeNotion(q.n) || chap(SESS_CHAP); return { type: 'question', quiz: q, mat: cq.mat, chapId: cq.id, label: 'Question · ' + q.q }; }
-  if (S.tab === 'session' && S.sess && S.sess.etape === 0) { var k = sessCartes()[S.sess.i]; return { type: 'carte', mat: 'maths', chapId: SESS_CHAP, label: 'Flashcard · ' + k[0] }; }
+  if (q) { var cq = chapDeNotion(q.n) || chapSession(); return { type: 'question', quiz: q, mat: cq.mat, chapId: cq.id, label: 'Question · ' + q.q }; }
+  if (S.tab === 'session' && S.sess && S.sess.etape === 0) { var k = sessCartes()[S.sess.i]; return { type: 'carte', mat: chapSession().mat, chapId: chapSession().id, label: 'Flashcard · ' + k[0] }; }
   if (S.tab === 'reviser' && S.rview === 'session' && S.rmode === 'cartes') { var d = deck(), c = d[S.carte % d.length]; return { type: 'carte', mat: c.mat, chapId: c.chap, label: 'Flashcard · ' + c.q }; }
   if (S.tab === 'cours' && S.chap) { var ch = chap(S.chap); return { type: 'fiche', mat: ch.mat, chapId: ch.id, label: 'Fiche · ' + ch.titre }; }
   if (S.tab === 'bac' && S.bmode === 'prog' && S.prog) {
@@ -881,13 +982,14 @@ function contexte() {
   return { type: 'general', label: { accueil: 'Accueil', cours: 'Mes cours', reviser: 'Réviser', bac: 'Mode bac' }[S.tab] || 'Révizo' };
 }
 function suggestions(ctx) {
-  if (!ctx) return ['Par quoi je commence ?', 'Explique la somme des termes', 'Problématiser, c’est quoi ?'];
+  if (!ctx) return suggestionsDefaut();
   if (ctx.type === 'question') return ['Un indice', 'Explique la notion', 'Un exemple chiffré'];
   if (ctx.type === 'carte') return ['Explique cette carte', 'Une astuce pour la retenir'];
   if (ctx.type === 'fiche') return ['Résume ce chapitre', 'Explique « ' + chap(ctx.chapId).notions.slice().sort(function (a, b) { return MAI[a] - MAI[b]; })[0] + ' »', 'Pose-moi une question'];
   if (ctx.type === 'programme') return ['Explique ce chapitre', 'Qu’est-ce qui tombe au bac ?'];
-  return ['Par quoi je commence ?', 'Explique la somme des termes', 'Problématiser, c’est quoi ?'];
+  return suggestionsDefaut();
 }
+function suggestionsDefaut() { var pf = pointsFaibles(1); return pf.length ? ['Par quoi je commence ?', 'Explique « ' + pf[0] + ' »', 'Pose-moi une question'] : ['Par quoi je commence ?', 'Comment importer mon cours ?', 'Qu’est-ce qui tombe au bac ?']; }
 function ouvrirTuteur(question) { S.tuteurVu = true; S.ctx = contexte(); S.sheet = 'tuteur'; S.draft = ''; render(); if (question) ask(question); }
 function ask(text) {
   S.chat.push({ r: 'u', t: text });
@@ -927,17 +1029,20 @@ function repondre(text, ctx) {
     else rep = 'Reformulons cette phrase : « ' + sel + ' ».' + (c ? '\nL’idée clé du chapitre : ' + c.resume.split('. ')[0] + '.' : '') + '\nTu veux que je te donne un exemple ?';
     return { r: 'a', t: rep + (c ? attenduDe(c) : ''), v: vids };
   }
-  if (/exemple chiffre|un exemple/.test(t)) return { r: 'a', t: 'Prenons $u_{0} = 2$ et $q = 3$ : $u_{1} = 6$, $u_{2} = 18$, $u_{3} = 54$.\nLa somme des 4 premiers termes vaut $2 × [[1 − 3^{4} // 1 − 3]] = 80$. Compte les termes : de $u_{0}$ à $u_{3}$, il y en a bien 4.', v: vids };
+  if (/exemple chiffre|un exemple/.test(t) && chap('suites')) return { r: 'a', t: 'Prenons $u_{0} = 2$ et $q = 3$ : $u_{1} = 6$, $u_{2} = 18$, $u_{3} = 54$.\nLa somme des 4 premiers termes vaut $2 × [[1 − 3^{4} // 1 − 3]] = 80$. Compte les termes : de $u_{0}$ à $u_{3}$, il y en a bien 4.', v: vids };
   if (/^resume ce chapitre/.test(t) && c) return { r: 'a', t: c.resume + '\n\nLes notions à connaître :\n' + c.notions.map(function (n) { return '• ' + n + ' (' + pct(MAI[n]) + ')'; }).join('\n') + attenduDe(c), v: vids };
   if (/^pose-moi une question/.test(t) && c) { var qz = c.quiz.slice().sort(function (a, b) { return MAI[a.n] - MAI[b.n]; })[0]; return { r: 'a', t: 'Question : ' + qz.q + '\n\nRéponds-moi avec tes mots. Si tu bloques, demande un indice.' }; }
-  if (/par quoi je commence/.test(t)) return { r: 'a', t: 'Commence par ta session du jour (12 min). Elle cible « Somme des termes », ton point le plus faible, et ton contrôle de maths est dans ' + joursAvant(CONTROLE.date) + ' jours.\nEnsuite, si tu as du temps : la problématique en philo, que tu maîtrises à ' + pct(MAI['Problématiser un sujet']) + '.' };
+  if (/par quoi je commence/.test(t)) { var cS = chapSession(), pf0 = pointsFaibles(1)[0]; if (!cS) return { r: 'a', t: 'Commence par importer un cours : une photo de ton cahier, un PDF ou un texte collé. J’en fais une fiche, des flashcards et un quiz, et ta session du jour apparaît sur l’accueil.' }; return { r: 'a', t: 'Commence par ta session du jour, sur « ' + cS.titre + ' »' + (pf0 ? '. Elle cible « ' + pf0 + ' », ton point le plus faible' : '') + (controleValide() ? ', et ' + CONTROLE.titre.toLowerCase() + ' est dans ' + joursAvant(CONTROLE.date) + ' jours' : '') + '.' }; }
+  if (/comment importer|importer mon cours|ajouter un cours/.test(t)) return { r: 'a', t: 'Appuie sur le bouton + en bas de l’écran. Tu peux prendre des photos de ton cahier ou du tableau, choisir un PDF ou un fichier Word, ou coller un texte. Je lis le texte, je repère les notions et je prépare une fiche, des flashcards et un quiz. Tout reste sur ton téléphone.' };
+  if (/^explique « (.+) »$/.test(text)) { var nm = text.replace(/^explique « /i, '').replace(/ »$/, ''), cN = chapDeNotion(nm); if (cN) { var ks = cN.cartes.filter(function (k) { return k[2] === nm; }); return { r: 'a', t: '« ' + nm + ' », dans ton chapitre « ' + cN.titre + ' » :\n' + cN.resume + (ks.length ? '\n\nÀ retenir :\n' + ks.slice(0, 3).map(function (k) { return '• ' + k[0] + ' → ' + k[1]; }).join('\n') : '') + attenduDe(cN), v: videosPour(PROGMAP[cN.id], cN.titre + ' ' + nm).slice(0, 3) }; } }
+  if (false) return { r: 'a', t: '' + joursAvant(CONTROLE.date) + ' jours.\nEnsuite, si tu as du temps : la problématique en philo, que tu maîtrises à ' + pct(MAI['Problématiser un sujet']) + '.' };
   if (/tombe au bac/.test(t) && ctx && ctx.mat) { var pr = null; PROGS.forEach(function (p) { if (!pr && p.matiereId === ctx.mat && p.niveau === 'terminale' && p.voie === 'generale') pr = p; }); var ev = pr && pr.evaluation; if (ev) return { r: 'a', t: 'Au bac en ' + nomCourt(pr) + ' : ' + ev.modalite + (ev.epreuve ? ', ' + ev.epreuve.toLowerCase() : '') + (ev.coefficient ? ', coefficient ' + ev.coefficient : '') + '.\n' + (ev.exigences || []).slice(0, 3).map(function (x) { return '• ' + x; }).join('\n') }; }
   if (/explique cette carte|astuce/.test(t) && ctx) return { r: 'a', t: (/astuce/.test(t) ? 'Une astuce : associe la formule à un exemple que tu connais par cœur. Pour $u_{n} = u_{0} × q^{n}$, pense à 1, 2, 4, 8… : on double à chaque fois, donc $q = 2$.' : 'Cette carte te demande de restituer une formule du cours. Retiens surtout d’où elle vient : on multiplie par $q$ à chaque rang, donc $n$ fois entre $u_{0}$ et $u_{n}$.'), v: vids };
-  if (/^6$|\b6 termes/.test(t)) return { r: 'a', t: 'Exactement, 6 termes. Tu viens de corriger l’erreur que tu faisais dans le quiz : « Somme des termes » progresse.' };
-  if (/somme|terme/.test(t)) { c = chap('suites'); return { r: 'a', t: 'Reprenons. Pour additionner $u_{0} + u_{1} + … + u_{n}$ d’une suite géométrique, on utilise $u_{0} × [[1 − q^{n+1} // 1 − q]]$. Le piège : de $u_{0}$ à $u_{n}$, il y a $n + 1$ termes, pas $n$.\n\nÀ toi : combien de termes dans $u_{0} + … + u_{5}$ ?' + attenduDe(c), v: videosPour(PROGMAP.suites, 'suites somme').slice(0, 3) }; }
-  if (/problematis/.test(t)) { c = chap('conscience'); return { r: 'a', t: 'Problématiser, c’est montrer que la question posée admet deux réponses opposées, toutes les deux défendables.\nExemple : « Peut-on se connaître soi-même ? » Oui, grâce à la conscience (Descartes)… mais non, si une partie de nous nous échappe (Freud). Ta problématique naît de cette tension.' + attenduDe(c), v: videosPour(PROGMAP.conscience, 'la conscience').slice(0, 2) }; }
+  if (/^6$|\b6 termes/.test(t) && chap('suites')) return { r: 'a', t: 'Exactement, 6 termes. Tu viens de corriger l’erreur que tu faisais dans le quiz : « Somme des termes » progresse.' };
+  if (/somme|terme/.test(t) && chap('suites')) { c = chap('suites'); return { r: 'a', t: 'Reprenons. Pour additionner $u_{0} + u_{1} + … + u_{n}$ d’une suite géométrique, on utilise $u_{0} × [[1 − q^{n+1} // 1 − q]]$. Le piège : de $u_{0}$ à $u_{n}$, il y a $n + 1$ termes, pas $n$.\n\nÀ toi : combien de termes dans $u_{0} + … + u_{5}$ ?' + attenduDe(c), v: videosPour(PROGMAP.suites, 'suites somme').slice(0, 3) }; }
+  if (/problematis/.test(t) && chap('conscience')) { c = chap('conscience'); return { r: 'a', t: 'Problématiser, c’est montrer que la question posée admet deux réponses opposées, toutes les deux défendables.\nExemple : « Peut-on se connaître soi-même ? » Oui, grâce à la conscience (Descartes)… mais non, si une partie de nous nous échappe (Freud). Ta problématique naît de cette tension.' + attenduDe(c), v: videosPour(PROGMAP.conscience, 'la conscience').slice(0, 2) }; }
   if (c) return { r: 'a', t: 'Reprenons « ' + c.titre + ' ». ' + c.resume + '\n\nDis-moi ce que tu as retenu, avec tes mots.' + attenduDe(c), v: vids };
-  return { r: 'a', t: 'Je n’ai pas trouvé ce sujet dans tes cours. Avec le vrai tuteur, je pourrai t’expliquer n’importe quelle notion du programme. Essaie une des suggestions.' };
+  return { r: 'a', t: (CHAPS.length ? 'Je n’ai pas trouvé ce sujet dans tes cours. ' : 'Tu n’as pas encore importé de cours. ') + 'Dans cette version de démonstration, je réponds à partir de tes cours importés et des programmes officiels ; la version complète, avec l’IA, pourra t’expliquer n’importe quelle notion. Essaie une des suggestions.' };
 }
 function bulles(list, off) {
   off = off || 0;
@@ -990,6 +1095,7 @@ function panneauReglages() {
       inter('indices', 'Indices d’abord', 'Sur un exercice, le tuteur te guide avant de donner la correction.') +
       blocRappels() +
       '<div class="reglage"><div class="eyebrow" style="margin-bottom:6px">Compte et données</div>' +
+        '<button class="item" data-act="ouvrirPage" data-v="profil"><span>Mon profil<br><small class="mut">' + esc(ELEVE.prenom || 'Prénom') + ' · ' + nivNom(ELEVE.niveau) + (ELEVE.voie === 'generale' && ELEVE.specialites.length ? ' · ' + ELEVE.specialites.map(function (x) { return NOMS[x] || MATIERES[mk(x)].nom; }).join(', ') : ELEVE.voie === 'technologique' ? ' · ' + ELEVE.serie : '') + '</small></span><span class="mut">›</span></button>' +
         '<button class="item" data-act="ouvrirPage" data-v="parent"><span>Compte parent<br><small class="mut">' + (PARENT.statut === 'aucun' ? 'Invite un parent à suivre ta progression' : PARENT.email) + '</small></span><span class="mut">›</span></button>' +
         '<button class="item" data-act="ouvrirPage" data-v="donnees"><span>Mes données et mes droits<br><small class="mut">Ce qui est gardé, télécharger, effacer</small></span><span class="mut">›</span></button>' +
         '<button class="item" data-act="ouvrirPage" data-v="confid"><span>Politique de confidentialité</span><span class="mut">›</span></button>' +
@@ -1000,35 +1106,50 @@ function panneauReglages() {
 }
 
 /* ===================== Écrans ===================== */
+function sessionsAujourdhui() { return ACTIVITE.sessions[cleJour()] || 0; }
+function formulaireControle() {
+  var cs = CHAPS.slice().sort(function (x, y) { return x.mat < y.mat ? -1 : x.mat > y.mat ? 1 : 0; });
+  return '<div class="card st-s"><b>Ajouter un contrôle</b><div class="mut">Ta session du jour s’organisera pour le préparer.</div>' +
+    '<label class="mut" for="ctrlChap">Chapitre</label><select id="ctrlChap" class="champ-txt">' + cs.map(function (c) { return '<option value="' + c.id + '">' + esc(nomMat(c.mat)) + ' · ' + esc(c.titre) + '</option>'; }).join('') + '</select>' +
+    '<label class="mut" for="ctrlDate">Date</label><input id="ctrlDate" class="champ-txt" type="date" min="' + cleJour() + '" value="' + cleJour(new Date(Date.now() + 7 * 864e5)) + '">' +
+    '<div class="g2"><button class="btn" data-act="ctrlForm">Annuler</button><button class="btn pri" data-act="ctrlOk">Ajouter</button></div></div>';
+}
 function accueil() {
-  var j = joursAvant(CONTROLE.date), prep = preparation(), c = chap(CONTROLE.chap);
-  var manque = c.notions.slice().sort(function (a, b) { return MAI[a] - MAI[b]; })[0];
-  return '<div class="st">' +
-    '<div class="row"><div class="grow"><div class="mut">' + esc(dateFr(new Date(), { weekday: 'long', day: 'numeric', month: 'long' })) + '</div><h1 class="display">Bonjour Léa</h1></div>' +
-      '<button class="flamme bouton-flamme" data-act="tab" data-v="progression" aria-label="Voir ma progression">' + ico('flamme', 18) + SERIE + ' jours</button></div>' +
-    (S.sessFaite
-      ? '<div class="hero"><div class="eyebrow">Session du jour</div><div class="display" style="font-size:1.5em;margin-top:4px">Terminée, bravo</div><div class="mut" style="margin-top:4px">Tu as gagné du terrain sur « Somme des termes ». Une autre session ?</div>' +
+  var cs = chapSession(), ct = controleValide(), sr = serie(), faitAuj = sessionsAujourdhui() > 0;
+  var h = '<div class="st"><div class="row"><div class="grow"><div class="mut">' + esc(dateFr(new Date(), { weekday: 'long', day: 'numeric', month: 'long' })) + '</div><h1 class="display">Bonjour' + (ELEVE.prenom ? ' ' + esc(ELEVE.prenom) : '') + '</h1></div>' +
+    '<button class="flamme bouton-flamme" data-act="tab" data-v="progression" aria-label="Voir ma progression">' + ico('flamme', 18) + sr + ' jour' + (sr > 1 ? 's' : '') + '</button></div>';
+  if (!cs) {
+    h += '<div class="hero"><div class="eyebrow">Pour commencer</div><div class="display" style="font-size:1.47em;margin-top:6px;line-height:1.2">Importe ton premier cours</div>' +
+      '<div class="mut" style="margin-top:6px">Une photo de ton cahier, un PDF, un fichier Word ou un texte collé : Révizo en fait une fiche, des flashcards et un quiz. Tout reste sur ton téléphone.</div>' +
+      '<button class="btn-blanc" data-act="tab" data-v="importer">' + ico('plus', 18, 2.2) + 'Importer un cours</button>' +
+      '<button class="btn-express" data-act="tab" data-v="bac">Voir les programmes officiels de ' + esc(nivNom(ELEVE.niveau).toLowerCase()) + '</button></div>' +
+      '<div class="card st-s"><b>Juste pour voir ?</b><div class="mut">Charge des cours d’exemple (une élève fictive de terminale) pour découvrir l’app. Tu pourras tout effacer d’un geste.</div><button class="btn" data-act="chargerExemple">Voir avec des cours d’exemple</button></div>';
+  } else {
+    var nbC = sessCartesDe(cs, false).length, nbQ = sessQuizDe(cs, false).length, duree = Math.max(3, Math.round(nbC * .6 + nbQ * 1.5 + 3)), pf = pointsFaibles(1)[0];
+    h += (faitAuj
+      ? '<div class="hero"><div class="eyebrow">Session du jour</div><div class="display" style="font-size:1.5em;margin-top:4px">Terminée, bravo</div><div class="mut" style="margin-top:4px">' + (pf ? 'Prochaine cible : « ' + esc(pf) + ' ».' : 'À demain pour la suite.') + '</div>' +
         '<button class="btn-blanc" data-act="startSess">' + ico('jouer', 18, 2.2) + 'Refaire une session</button>' +
         (RAPPELS.actif ? '<div class="mut" style="margin-top:10px;text-align:center">Prochain rappel demain à ' + RAPPELS.heure + ' h</div>' : '') + '</div>'
-      : '<div class="hero"><div class="row"><span class="eyebrow">Ta session du jour</span><span class="mut">12 min</span></div>' +
-        '<div class="display" style="font-size:1.47em;margin-top:6px;line-height:1.2">On avance sur ton contrôle de maths</div>' +
-        '<div class="etapes"><span>4 cartes</span><span>3 questions</span><span>1 question du tuteur</span></div>' +
+      : '<div class="hero"><div class="row"><span class="eyebrow">Ta session du jour</span><span class="mut">' + duree + ' min</span></div>' +
+        '<div class="display" style="font-size:1.47em;margin-top:6px;line-height:1.2">' + (ct && ct.chap === cs.id ? 'On prépare ton contrôle : ' + esc(cs.titre) : 'On avance sur « ' + esc(cs.titre) + ' »') + '</div>' +
+        '<div class="etapes">' + (nbC ? '<span>' + nbC + ' carte' + (nbC > 1 ? 's' : '') + '</span>' : '') + (nbQ ? '<span>' + nbQ + ' question' + (nbQ > 1 ? 's' : '') + '</span>' : '') + '<span>1 question du tuteur</span></div>' +
         '<button class="btn-blanc" data-act="startSess">' + ico('jouer', 18, 2.2) + 'Commencer ma session</button>' +
         '<button class="btn-express" data-act="startSess" data-v="express">Pas le temps ? Version express · 5 min</button></div>') +
-    '<button class="card objectif" data-act="tab" data-v="progression"><span class="grow"><b>Objectif de la semaine</b><span class="mut"> · ' + OBJECTIF.faites + ' sur ' + OBJECTIF.cible + ' sessions</span>' +
-      '<span class="jauge" style="display:block;margin-top:8px"><i style="width:' + Math.min(100, Math.round(OBJECTIF.faites / OBJECTIF.cible * 100)) + '%;background:var(--acc-btn)"></i></span></span><span class="mut" style="margin-left:12px">Ma progression ›</span></button>' +
-    '<div class="card st-s m-maths"><div class="row">' + tuile('maths') + '<div class="grow"><b>' + esc(CONTROLE.titre) + '</b><div class="mut">dans ' + j + ' jour' + (j > 1 ? 's' : '') + ' · ' + esc(dateFr(CONTROLE.date, { weekday: 'short', day: 'numeric', month: 'short' })) + '</div></div></div>' +
-      '<div class="row" style="align-items:baseline"><span>Prêt à <span class="chiffre titre-mat">' + pct(prep) + '</span></span><span class="mut">objectif 80 %</span></div>' +
-      '<div class="jauge"><i style="width:' + Math.round(prep * 100) + '%"></i></div>' +
-      '<div class="mut">Ce qui te manque le plus : ' + esc(manque) + ' (' + pct(MAI[manque]) + ')</div></div>' +
-    '<div class="card st-s"><div class="row"><b>À venir</b><span class="mut">synchronisé avec Pronote</span></div>' +
-      '<div class="row">' + tuile('maths', 1) + '<div class="grow"><div>Contrôle · Suites numériques</div><div class="mut">Maths</div></div><span class="badge b-rouge">J-' + j + '</span></div>' +
-      '<div class="sep"></div>' +
-      '<div class="row">' + tuile('philo', 1) + '<div class="grow"><div>Dissertation à rendre</div><div class="mut">Philosophie</div></div><span class="badge b-indigo">J-' + joursAvant(new Date(2026, 9, 23)) + '</span></div></div>' +
-    '<div class="card st"><b>Ce que tu maîtrises le moins</b>' +
-      pointsFaibles(3).map(function (n) { var ch = chapDeNotion(n); return '<div class="m-' + mk(ch.mat) + '"><div class="row">' + tuile(ch.mat, 1) + '<span class="grow">' + esc(n) + '</span><span class="mut">' + pct(MAI[n]) + '</span></div>' + barre(MAI[n]) + '</div>'; }).join('') +
-      '<button class="btn" data-act="askFaible">Me l’expliquer avec le tuteur</button></div>' +
-  '</div>';
+    '<button class="card objectif" data-act="tab" data-v="progression"><span class="grow"><b>Objectif de la semaine</b><span class="mut"> · ' + sessionsSemaine() + ' sur ' + OBJECTIF.cible + ' sessions</span>' +
+      '<span class="jauge" style="display:block;margin-top:8px"><i style="width:' + Math.min(100, Math.round(sessionsSemaine() / OBJECTIF.cible * 100)) + '%;background:var(--acc-btn)"></i></span></span><span class="mut" style="margin-left:12px">›</span></button>';
+    if (ct) {
+      var j = joursAvant(ct.date), prep = preparation(), cc = chap(ct.chap), manque = cc.notions.slice().sort(function (x, y) { return (MAI[x] || 0) - (MAI[y] || 0); })[0];
+      h += '<div class="card st-s m-' + mk(ct.mat) + '"><div class="row">' + tuile(ct.mat) + '<div class="grow"><b>' + esc(ct.titre) + '</b><div class="mut">' + (j === 0 ? 'aujourd’hui' : 'dans ' + j + ' jour' + (j > 1 ? 's' : '')) + ' · ' + esc(dateFr(ct.date, { weekday: 'short', day: 'numeric', month: 'short' })) + '</div></div><button class="lien" data-act="ctrlSuppr" style="padding:0">Retirer</button></div>' +
+        '<div class="row" style="align-items:baseline"><span>Prêt à <span class="chiffre titre-mat">' + pct(prep) + '</span></span><span class="mut">objectif 80 %</span></div>' +
+        '<div class="jauge"><i style="width:' + Math.round(prep * 100) + '%"></i></div>' +
+        (manque ? '<div class="mut">Ce qui te manque le plus : ' + esc(manque) + ' (' + pct(MAI[manque] || 0) + ')</div>' : '') + '</div>';
+    } else h += S.ctrlForm ? formulaireControle() : '<button class="card row" data-act="ctrlForm" style="text-align:left;width:100%"><span class="tuile m-autre">' + ico('cible', 20) + '</span><span class="grow"><b>Un contrôle qui approche ?</b><br><span class="mut">Ajoute-le : ta session du jour le prépare. Bientôt synchronisé avec Pronote.</span></span><span class="mut">›</span></button>';
+    var pfs = pointsFaibles(3).filter(function (n) { return chapDeNotion(n); });
+    if (pfs.length) h += '<div class="card st"><b>Ce que tu maîtrises le moins</b>' +
+      pfs.map(function (n) { var ch = chapDeNotion(n); return '<div class="m-' + mk(ch.mat) + '"><div class="row">' + tuile(ch.mat, 1) + '<span class="grow">' + esc(n) + '</span><span class="mut">' + pct(MAI[n]) + '</span></div>' + barre(MAI[n]) + '</div>'; }).join('') +
+      '<button class="btn" data-act="askFaible">Me l’expliquer avec le tuteur</button></div>';
+  }
+  return h + '</div>';
 }
 function cours() {
   if (S.chap) {
@@ -1050,7 +1171,7 @@ function cours() {
         (c.cartes.length ? '<details><summary class="lien">Voir les ' + c.cartes.length + ' flashcards créées</summary><ul class="attendus">' + c.cartes.map(function (k) { return '<li><b>' + esc(k[0]) + '</b><br>' + esc(k[1]) + '</li>'; }).join('') + '</ul></details>' : '') +
         '<button class="btn rouge" data-act="supprChap" data-v="' + c.id + '">' + (S.confSupprChap === c.id ? 'Confirmer : supprimer ce chapitre' : 'Supprimer ce chapitre') + '</button></div>' : '') + '</div>';
   }
-  return '<div class="st"><h1 class="display">Mes cours</h1>' + MATS.map(function (m) {
+  return '<div class="st"><h1 class="display">Mes cours</h1>' + (MATS.length ? '' : '<div class="card st-s"><b>Pas encore de cours</b><div class="mut">Importe une photo de ton cahier, un PDF, un fichier Word ou un texte : tu retrouveras ici tes fiches, flashcards et quiz, classés par matière.</div><button class="btn pri" data-act="tab" data-v="importer">Importer un cours</button><button class="btn" data-act="chargerExemple">Voir avec des cours d’exemple</button></div>') + MATS.map(function (m) {
     var cs = CHAPS.filter(function (c) { return c.mat === m[0]; });
     return '<div class="card st-s m-' + mk(m[0]) + '"><div class="entete-mat">' + tuile(m[0]) + '<div class="grow"><b class="titre-mat" style="font-size:1.07em">' + m[1] + '</b><div class="mut">programme ' + cs.length + '/' + m[2] + ' chapitres</div></div></div>' +
       cs.map(function (c) { var x = maitriseChap(c); return '<button class="item" data-act="openChap" data-v="' + c.id + '"><span class="grow">' + esc(c.titre) + barre(x) + '</span><span class="mut">' + pct(x) + ' ›</span></button>'; }).join('') + '</div>';
@@ -1096,6 +1217,8 @@ function reviser() {
 }
 function choix() {
   var cs = CHAPS.filter(function (c) { return c.mat === S.pmat; }), nb = S.sel.length;
+  if (!CHAPS.length) return '<div class="st"><div><h1 class="display">Réviser</h1><div class="mut" style="margin-top:4px">Tu choisis ce que tu veux revoir : une matière, un ou plusieurs chapitres, ou tes points faibles.</div></div>' + '<div class="card st-s"><b>Pas encore de cours</b><div class="mut">Importe une photo de ton cahier, un PDF, un fichier Word ou un texte : tu retrouveras ici tes fiches, flashcards et quiz, classés par matière.</div><button class="btn pri" data-act="tab" data-v="importer">Importer un cours</button><button class="btn" data-act="chargerExemple">Voir avec des cours d’exemple</button></div>' + '</div>';
+  if (!cs.length && MATS.length) { S.pmat = MATS[0][0]; cs = CHAPS.filter(function (c) { return c.mat === S.pmat; }); }
   var compte = function (m) { return CHAPS.filter(function (c) { return c.mat === m && S.sel.indexOf(c.id) >= 0; }).length; };
   return '<div class="st"><div><h1 class="display">Réviser</h1><div class="mut" style="margin-top:4px">Choisis ce que tu veux revoir. Tu peux cocher plusieurs chapitres.</div></div>' +
     '<button class="faible" data-act="weak"><span class="ico">' + ico('cible', 20, 2) + '</span><span class="txt"><b>Mes points faibles</b><span>Les 3 chapitres que tu maîtrises le moins, choisis pour toi</span></span><span>›</span></button>' +
@@ -1212,7 +1335,7 @@ function bac() {
 
 /* ===================== Rendu ===================== */
 function render() {
-  var ecrans = { accueil: accueil, cours: cours, importer: importer, reviser: reviser, tuteur: tuteur, bac: bac, session: session, progression: progression, parent: parent, donnees: donnees, confid: confidentialite };
+  var ecrans = { accueil: accueil, cours: cours, importer: importer, reviser: reviser, tuteur: tuteur, bac: bac, session: session, progression: progression, parent: parent, donnees: donnees, confid: confidentialite, profil: profil };
   if (S.onb !== null && S.onb !== undefined && !S.voirConfidOnb) { document.getElementById('app').innerHTML = onboarding(); return; }
   var prev = document.querySelector('.ecran'), top = prev ? prev.scrollTop : 0;
   var focus = S.tab === 'session';
@@ -1263,15 +1386,15 @@ document.addEventListener('click', function (ev) {
   else if (a === 'startSess') demarrerSession(v === 'express');
   else if (a === 'quitterSess') { S.sess = null; go('accueil'); }
   else if (a === 'sFlip') { s.flipped = !s.flipped; render(); }
-  else if (a === 'sRate') { var k = sessCartes()[s.i]; if (v === '1') { s.cartesSues++; maj(k[2], .05); } s.flipped = false; s.i++; if (s.i >= sessCartes().length) { s.etape = 1; s.i = 0; s.hint = 0; } render(); }
-  else if (a === 'sPick') { if (s.pick !== null) return; var qz = sessQuiz()[s.i]; s.pick = +v; if (s.pick === qz.a) { s.bonnes++; maj(qz.n, s.hint ? .07 : .1); } else maj(qz.n, -.03); render(); }
+  else if (a === 'sRate') { var k = sessCartes()[s.i]; if (v === '1') { s.cartesSues++; maj(k[2], .05); } s.flipped = false; s.i++; if (s.i >= sessCartes().length) { s.etape = sessQuiz().length ? 1 : (s.express ? 3 : 2); s.i = 0; s.hint = 0; } sauverImports(); render(); }
+  else if (a === 'sPick') { if (s.pick !== null) return; var qz = sessQuiz()[s.i]; s.pick = +v; if (s.pick === qz.a) { s.bonnes++; maj(qz.n, s.hint ? .07 : .1); } else maj(qz.n, -.03); sauverImports(); render(); }
   else if (a === 'sHint') { s.hint++; render(); }
   else if (a === 'sNext') { s.pick = null; s.hint = 0; s.i++; if (s.i >= sessQuiz().length) { s.etape = s.express ? 3 : 2; s.i = 0; } render(); document.querySelector('.ecran').scrollTop = 0; }
-  else if (a === 'sRepondre') { var champ = document.getElementById('sRep'); s.rep = champ ? champ.value.replace(/^\s+|\s+$/g, '') : ''; if (!s.rep) return toast('Écris ta réponse, ou demande un indice.'); s.fait = true; s.ok = /n ?\+ ?1|0|zéro|zero|rang|indice/i.test(s.rep); maj(SESS_TUT.n, s.ok ? .1 : .04); render(); }
+  else if (a === 'sRepondre') { var champ = document.getElementById('sRep'); s.rep = champ ? champ.value.replace(/^\s+|\s+$/g, '') : ''; if (!s.rep) return toast('Écris ta réponse, ou demande un indice.'); s.fait = true; var tS = tuteurSession(); s.ok = reponseAcceptable(s.rep, chapSession(), tS.n); maj(tS.n, s.ok ? .1 : .04); render(); }
   else if (a === 'sBilan') { s.etape = 3; render(); document.querySelector('.ecran').scrollTop = 0; }
-  else if (a === 'finSess') { if (!S.sessFaite) { SERIE = 6; } OBJECTIF.faites++; S.sess = null; S.sessFaite = true; go('accueil'); toast('Session enregistrée. ' + SERIE + ' jours d’affilée !'); }
+  else if (a === 'finSess') { enregistrerSession(Math.min(60, Math.max(1, Math.round((Date.now() - s.t0) / 60000)))); S.sess = null; S.sessFaite = true; go('accueil'); toast('Session enregistrée. ' + serie() + ' jour' + (serie() > 1 ? 's' : '') + ' d’affilée !'); }
   else if (a === 'ouvrirTuteur') ouvrirTuteur();
-  else if (a === 'objectif') { OBJECTIF.cible = +v; render(); }
+  else if (a === 'objectif') { OBJECTIF.cible = +v; sauverObjectif(); render(); }
   else if (a === 'amat') set({ amat: v });
   else if (a === 'entrainer') { set({ annale: +v, achrono: null }); document.querySelector('.ecran').scrollTop = 0; }
   else if (a === 'finEntr') { clearInterval(chronoAnn); set({ annale: null, achrono: null }); }
@@ -1282,8 +1405,8 @@ document.addEventListener('click', function (ev) {
   else if (a === 'rapHeure') { RAPPELS.heure = v; RAPPELS.actif = true; sauverRappels(); render(); }
   else if (a === 'ouvrirPage') { S.sheet = null; S.confirmeSuppr = false; go(v); }
   else if (a === 'reglagesRetour') { go('accueil'); set({ sheet: 'reglages' }); }
-  else if (a === 'inviterParent') { var em = (document.getElementById('emailParent').value || '').replace(/^\s+|\s+$/g, ''); if (!/^\S+@\S+\.\S+$/.test(em)) return toast('Indique une adresse e-mail valide.'); PARENT.email = em; PARENT.statut = 'invite'; render(); toast('Invitation envoyée à ' + em + ' (démo).'); }
-  else if (a === 'retirerParent') { PARENT.email = ''; PARENT.statut = 'aucun'; render(); toast('Ton parent ne reçoit plus de résumé.'); }
+  else if (a === 'inviterParent') { var em = (document.getElementById('emailParent').value || '').replace(/^\s+|\s+$/g, ''); if (!/^\S+@\S+\.\S+$/.test(em)) return toast('Indique une adresse e-mail valide.'); PARENT.email = em; PARENT.statut = 'invite'; sauverParent(); render(); toast('Invitation envoyée à ' + em + ' (démo).'); }
+  else if (a === 'retirerParent') { PARENT.email = ''; PARENT.statut = 'aucun'; sauverParent(); render(); toast('Ton parent ne reçoit plus de résumé.'); }
   else if (a === 'signaler') { if (S.chat[+v]) S.chat[+v].signale = true; render(); toast('Merci : l’erreur est signalée et sera vérifiée.'); }
   else if (a === 'onbSuite') set({ onb: S.onb + 1 });
   else if (a === 'onbPasser' || a === 'onbFin') { if (a === 'onbFin') { RAPPELS.actif = v === '1'; sauverRappels(); } if (!CONSENT.date) { CONSENT.age = CONSENT.age || 'plus15'; CONSENT.ia = true; CONSENT.date = Date.now(); sauverConsent(); } try { localStorage.setItem('revizo-onb', '1'); } catch (e) {} set({ onb: null }); if (a === 'onbFin') toast(RAPPELS.actif ? 'Rappel programmé à ' + RAPPELS.heure + ' h.' : 'Pas de rappel. Tu pourras l’activer dans les réglages.'); }
@@ -1293,15 +1416,26 @@ document.addEventListener('click', function (ev) {
     else CONSENT.parentStatut = 'non requis';
     sauverConsent(); set({ onb: 2 });
   }
-  else if (a === 'onbIA') { CONSENT.ia = true; CONSENT.date = Date.now(); sauverConsent(); set({ onb: 3 }); }
+  else if (a === 'onbIA') { CONSENT.ia = true; CONSENT.date = Date.now(); sauverConsent(); set({ onb: 4 }); }
+  else if (a === 'profNiv') { lirePrenom(); ELEVE.niveau = v; ELEVE.specialites = ELEVE.specialites.slice(0, maxSpecialites()); render(); }
+  else if (a === 'profVoie') { lirePrenom(); ELEVE.voie = v; render(); }
+  else if (a === 'profSerie') { lirePrenom(); ELEVE.serie = v; render(); }
+  else if (a === 'profSpe') { lirePrenom(); var ix = ELEVE.specialites.indexOf(v); if (ix >= 0) ELEVE.specialites.splice(ix, 1); else if (ELEVE.specialites.length < maxSpecialites()) ELEVE.specialites.push(v); else return toast('Au maximum ' + maxSpecialites() + ' spécialités en ' + nivNom(ELEVE.niveau).toLowerCase() + '.'); render(); }
+  else if (a === 'onbProfilOk') { lirePrenom(); sauverProfil(); S.pniv = ELEVE.niveau; S.pvoie = ELEVE.voie; set({ onb: 3 }); }
+  else if (a === 'profilOk') { lirePrenom(); sauverProfil(); S.pniv = ELEVE.niveau; S.pvoie = ELEVE.voie; go('accueil'); toast('Profil enregistré.'); }
+  else if (a === 'chargerExemple') { chargerExemple(); S.pmat = MATS[0][0]; go('accueil'); toast('Cours d’exemple chargés. Tu peux les effacer dans Réglages › Mes données.'); }
+  else if (a === 'toutEffacer') { if (S.confirmeEffacer) toutEffacer(); else { S.confirmeEffacer = true; render(); setTimeout(function () { S.confirmeEffacer = false; }, 4000); } }
+  else if (a === 'ctrlForm') set({ ctrlForm: !S.ctrlForm });
+  else if (a === 'ctrlOk') { var cm = document.getElementById('ctrlChap'), cd = document.getElementById('ctrlDate'), cc = cm && chap(cm.value); if (!cc) return toast('Choisis un chapitre.'); if (!cd || !cd.value) return toast('Choisis la date du contrôle.'); var dd = new Date(cd.value + 'T12:00:00'); if (isNaN(dd.getTime())) return toast('Date invalide.'); CONTROLE = { mat: cc.mat, chap: cc.id, titre: 'Contrôle · ' + cc.titre, date: dd }; sauverControle(); set({ ctrlForm: false }); toast('Contrôle ajouté : ta session du jour le prépare.'); }
+  else if (a === 'ctrlSuppr') { CONTROLE = null; sauverControle(); render(); }
   else if (a === 'revoirOnb') set({ sheet: null, onb: 0 });
   else if (a === 'voirConfid') { if (S.onb !== null && S.onb !== undefined) set({ voirConfidOnb: true }); else { S.sheet = null; go('confid'); } }
   else if (a === 'retourOnb') set({ voirConfidOnb: false });
   else if (a === 'validerParent') { CONSENT.parentStatut = 'validé'; sauverConsent(); render(); toast('Accord parental validé (démo).'); }
-  else if (a === 'exporter') toast('Tes données sont prêtes : un fichier va être téléchargé (démo).');
+  else if (a === 'exporter') { var tout = {}; try { for (var ii = 0; ii < localStorage.length; ii++) { var kk = localStorage.key(ii); if (/^revizo-/.test(kk)) tout[kk] = JSON.parse(localStorage.getItem(kk)); } } catch (e) {} var bl = new Blob([JSON.stringify({ exporte: new Date().toISOString(), donnees: tout }, null, 1)], { type: 'application/json' }), ur = URL.createObjectURL(bl), aa = document.createElement('a'); aa.href = ur; aa.download = 'revizo-mes-donnees.json'; document.body.appendChild(aa); aa.click(); setTimeout(function () { document.body.removeChild(aa); URL.revokeObjectURL(ur); }, 500); toast('Tes données sont téléchargées (fichier JSON).'); }
   else if (a === 'demanderSuppr') set({ confirmeSuppr: true });
   else if (a === 'annulerSuppr') set({ confirmeSuppr: false });
-  else if (a === 'supprimer') { try { localStorage.removeItem('revizo-consent'); localStorage.removeItem('revizo-onb'); } catch (e) {} CONSENT = { age: null, parentEmail: '', parentStatut: 'non requis', ia: false, date: null }; set({ confirmeSuppr: false, onb: 0, tab: 'accueil' }); toast('Compte effacé (démo).'); }
+  else if (a === 'supprimer') { toutEffacer(); toast('Compte effacé (démo).'); }
   else if (a === 'tuteurQuestion') ouvrirTuteur('Explique-moi cette question, je ne comprends pas.');
   else if (a === 'fermerSheet') set({ sheet: null });
   else if (a === 'reglages') set({ sheet: 'reglages' });
@@ -1399,6 +1533,7 @@ function expliquerSelection(ev) {
   appliquerReglages();
   S.onb = ONB_FAIT ? null : 0;
   chargerImports();
+  S.pniv = ELEVE.niveau; S.pvoie = ELEVE.voie; if (MATS.length) S.pmat = MATS[0][0];
   render();
 })();
 
@@ -1416,6 +1551,7 @@ var LIBS = window.REVIZO_LIBS || {
   tessLang: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/fra@1.0.0/4.0.0_best_int'
 };
 var IMP = { files: [], texte: '', mat: 'maths', chap: '_new', progChap: '', titre: '', etat: null, etapes: [], resultat: null, erreur: '' };
+if (MATS.length) IMP.mat = MATS[0][0]; // le code de démarrage (ecrans.js) a déjà rechargé les cours
 var scriptsCharges = {};
 function chargerScript(url) {
   if (scriptsCharges[url]) return scriptsCharges[url];
@@ -1586,7 +1722,7 @@ function estTitre(l) {
   var lettres = l.replace(/[^A-Za-zÀ-ÿ]/g, '');
   return lettres.length >= 4 && lettres === lettres.toUpperCase() && l.split(' ').length <= 9;
 }
-function propreTitre(l) { return l.replace(/^((\d+|[IVX]+|[A-H])\s*[\.\)\-–]\s*)+/i, '').replace(/:$/, '').replace(/^\s+|\s+$/g, '').replace(/^(.)/, function (c) { return c.toUpperCase(); }).replace(/^([A-ZÀ-Ý \-']+)$/, function (m) { return m.charAt(0) + m.slice(1).toLowerCase(); }); }
+function propreTitre(l) { return l.replace(/^(chapitre|partie|séquence|sequence|thème|theme|leçon|lecon|cours)\s*(\d+|[IVX]+)?\s*[:\.\)\-–—]*\s*/i, '').replace(/^((\d+|[IVX]+|[A-H])\s*[\.\)\-–]\s*)+/i, '').replace(/:$/, '').replace(/^\s+|\s+$/g, '').replace(/^(.)/, function (c) { return c.toUpperCase(); }).replace(/^([A-ZÀ-Ý0-9 \-'’,;:()]+)$/, function (m) { return m.charAt(0) + m.slice(1).toLowerCase(); }); }
 var TITRES_GENERIQUES = /^(d[ée]finitions?|propri[ée]t[ée]s?|th[ée]or[eè]me|m[ée]thodes?|exemples?|remarques?|exercices?|r[ée]sum[ée]|conclusion|introduction|cours|le[çc]on)$/i;
 function phrasesDe(t) { return t.replace(/\n+/g, ' ').replace(/([.!?])\s+(?=[A-ZÀ-Ý«"(\d])/g, '$1\u0001').split('\u0001').map(function (s) { return s.replace(/^\s+|\s+$/g, ''); }).filter(function (s) { return s.length >= 25 && s.length <= 320; }); }
 function couper(s, n) { s = s.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, ''); return s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…'; }
