@@ -12,7 +12,7 @@
 <meta http-equiv="Cache-Control" content="no-cache">
 <script>
 /* Mise à jour automatique : si une version plus récente est publiée, la page se recharge une fois (évite les vieilles copies gardées par le navigateur). */
-window.REVIZO_VERSION = '20261026-160138';
+window.REVIZO_VERSION = '20261026-160729';
 (function () {
   try {
     if (!/^https?:/.test(location.protocol)) return;
@@ -1524,7 +1524,7 @@ document.addEventListener('click', function (ev) {
 });
 document.addEventListener('change', function (ev) {
   var id = ev.target.id;
-  if (id === 'fichiers') { ajouterFichiers(ev.target.files); ev.target.value = ''; }
+  if (id === 'fichiers' || id === 'fichiersCam') { ajouterFichiers(ev.target.files); ev.target.value = ''; }
   else if (id === 'impMat') { IMP.mat = ev.target.value; var c1 = CHAPS.filter(function (c) { return c.mat === IMP.mat; })[0]; IMP.chap = c1 ? c1.id : '_new'; IMP.progChap = ''; render(); }
   else if (id === 'impChap') { IMP.chap = ev.target.value; IMP.progChap = ''; render(); }
   else if (id === 'impProg') { IMP.progChap = ev.target.value; render(); }
@@ -1588,6 +1588,7 @@ var LIBS = window.REVIZO_LIBS || {
 };
 var IMP = { files: [], texte: '', mat: 'maths', chap: '_new', progChap: '', titre: '', etat: null, etapes: [], resultat: null, erreur: '' };
 if (MATS.length) IMP.mat = MATS[0][0]; // le code de démarrage (ecrans.js) a déjà rechargé les cours
+var TACTILE = (function () { try { return (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || 'ontouchstart' in window; } catch (e) { return false; } })();
 var scriptsCharges = {};
 function chargerScript(url) {
   if (scriptsCharges[url]) return scriptsCharges[url];
@@ -1951,10 +1952,17 @@ function importer() {
       (IMP.chap === '_new' ? (prog ? '<div><label class="mut" for="impProg">Chapitre du programme officiel</label><select id="impProg" class="champ-txt"><option value="">Autre : je le nomme</option>' +
           prog.chapitres.map(function (c, i) { var ref = prog.id + '#' + i; return pris[ref] ? '' : '<option value="' + ref + '"' + (IMP.progChap === ref ? ' selected' : '') + '>' + esc(couper(titreCourt(c.titre), 70)) + '</option>'; }).join('') + '</select></div>' : '') +
         (!IMP.progChap ? '<div><label class="mut" for="impTitre">Nom du chapitre</label><input id="impTitre" class="champ-txt" placeholder="La guerre froide" value="' + esc(IMP.titre) + '"></div>' : '') : '') +
-      '<label class="depot" for="fichiers" id="depot"><span style="color:var(--acc)">' + ico(S.importType === 'vocal' ? 'micro' : 'photo', 28, 1.8) + '</span>' +
-        '<div style="font-weight:600;margin-top:6px">' + { photo: 'Prendre ou choisir des photos', fichier: 'Choisir un fichier', vocal: 'Choisir une note vocale', controle: 'Photographier ta copie corrigée' }[S.importType] + '</div>' +
-        '<div class="mut">' + { photo: 'plusieurs pages d’un coup · ou glisse-les ici', fichier: 'PDF, Word (.docx) ou texte · ou glisse-le ici', vocal: 'm4a, mp3, wav', controle: 'les erreurs iront dans tes points à revoir' }[S.importType] + '</div></label>' +
-      '<input type="file" id="fichiers" multiple accept="' + accept + '"' + (S.importType === 'photo' || S.importType === 'controle' ? ' capture="environment"' : '') + ' class="fichier-cache">' +
+      (S.importType === 'photo' || S.importType === 'controle'
+        ? '<div class="depot" id="depot"><span style="color:var(--acc)">' + ico('photo', 28, 1.8) + '</span>' +
+            '<div style="font-weight:600;margin-top:6px">' + (S.importType === 'photo' ? 'Tes pages de cours' : 'Ta copie corrigée') + '</div>' +
+            '<div class="mut">' + (S.importType === 'photo' ? 'Plusieurs pages d’un coup.' : 'Les erreurs iront dans tes points à revoir.') + (TACTILE ? '' : ' Tu peux aussi glisser les photos ici.') + '</div>' +
+            '<div class="g2" style="margin-top:12px"><label class="btn pri" for="fichiersCam">Prendre une photo</label><label class="btn" for="fichiers">Choisir dans la galerie</label></div></div>' +
+          '<input type="file" id="fichiersCam" accept="image/*" capture="environment" class="fichier-cache">' +
+          '<input type="file" id="fichiers" multiple accept="' + accept + '" class="fichier-cache">'
+        : '<label class="depot" for="fichiers" id="depot"><span style="color:var(--acc)">' + ico(S.importType === 'vocal' ? 'micro' : 'livre', 28, 1.8) + '</span>' +
+            '<div style="font-weight:600;margin-top:6px">' + { fichier: 'Choisir un fichier', vocal: 'Choisir une note vocale' }[S.importType] + '</div>' +
+            '<div class="mut">' + { fichier: 'PDF, Word (.docx) ou texte' + (TACTILE ? '' : ' · ou glisse-le ici'), vocal: 'm4a, mp3, wav' }[S.importType] + '</div></label>' +
+          '<input type="file" id="fichiers" multiple accept="' + accept + '" class="fichier-cache">') +
       (IMP.files.length ? '<div class="liste-fichiers">' + IMP.files.map(function (e, i) {
         return '<div class="fichier">' + (e.thumb ? '<img src="' + e.thumb + '" alt="">' : '<span class="ext">' + esc({ pdf: 'PDF', docx: 'DOCX', texte: 'TXT', audio: 'AUDIO', image: 'IMG' }[e.type]) + '</span>') +
           '<span class="grow"><b>' + esc(couper(e.nom, 34)) + '</b><br><span class="mut">' + tailleLisible(e.taille) + '</span></span>' + (occupe ? '' : '<button class="fermer" data-act="retirerFichier" data-v="' + i + '" aria-label="Retirer ' + esc(e.nom) + '">' + ico('croix', 16) + '</button>') + '</div>';
